@@ -46,6 +46,7 @@ pub struct App {
     profile_selection_popup: crate::components::ProfileSelectionPopup,
     manage_profiles_screen: ManageProfilesScreen,
     manage_packages_screen: ManagePackagesScreen,
+    manage_templates_screen: crate::screens::ManageTemplatesScreen,
     settings_screen: crate::screens::SettingsScreen,
     /// Modal dialog state (for error messages, confirmations)
     dialog_state: Option<DialogState>,
@@ -107,6 +108,7 @@ impl App {
             profile_selection_popup: crate::components::ProfileSelectionPopup::new(),
             manage_profiles_screen: ManageProfilesScreen::new(),
             manage_packages_screen: ManagePackagesScreen::new(),
+            manage_templates_screen: crate::screens::ManageTemplatesScreen::new(),
             settings_screen: crate::screens::SettingsScreen::new(),
 
             dialog_state: None,
@@ -279,6 +281,7 @@ impl App {
             }
 
             // Process package checking and installation (managed by screen)
+            self.manage_templates_screen.tick();
             // We call tick() on the manage_packages_screen to handle background tasks
             let needs_fast_refresh = match self.manage_packages_screen.tick() {
                 Ok(crate::screens::ScreenAction::Refresh) => true,
@@ -505,6 +508,15 @@ impl App {
                         error!("Failed to render manage profiles screen: {}", e);
                     }
                 }
+                Screen::ManageTemplates => {
+                    let syntax_theme = crate::utils::get_current_syntax_theme(&self.theme_set);
+                    let ctx = crate::screens::RenderContext::new(
+                        &config_clone, &self.syntax_set, &self.theme_set, syntax_theme,
+                    );
+                    if let Err(e) = self.manage_templates_screen.render(frame, area, &ctx) {
+                        error!("Failed to render templates screen: {}", e);
+                    }
+                }
                 Screen::ManagePackages => {
                     use crate::screens::{RenderContext, Screen as ScreenTrait};
                     let syntax_theme = crate::utils::get_current_syntax_theme(&self.theme_set);
@@ -593,6 +605,7 @@ impl App {
             }
 
             // Package Manager - add/edit/delete popups with text input
+            Screen::ManageTemplates => self.manage_templates_screen.is_input_focused(),
             Screen::ManagePackages => {
                 use crate::screens::Screen as ScreenTrait;
                 self.manage_packages_screen.is_input_focused()
@@ -856,6 +869,12 @@ impl App {
                         error!("Failed to show profile selection popup: {}", e);
                     }
                 }
+                Ok(())
+            }
+            Screen::ManageTemplates => {
+                let ctx = crate::screens::ScreenContext::new(&self.config, &self.config_path);
+                let action = self.manage_templates_screen.handle_event(event, &ctx)?;
+                self.process_screen_action(action)?;
                 Ok(())
             }
             Screen::ManagePackages => {
@@ -1397,6 +1416,7 @@ impl App {
                 }
             }
             Screen::ManagePackages => self.manage_packages_screen.on_enter(&ctx)?,
+            Screen::ManageTemplates => self.manage_templates_screen.on_enter(&ctx)?,
             Screen::Settings => self.settings_screen.on_enter(&ctx)?,
         }
         Ok(())

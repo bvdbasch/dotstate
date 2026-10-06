@@ -61,6 +61,8 @@ pub mod sync_with_remote;
 pub use dotfile_selection::DotfileSelectionScreen;
 pub use main_menu::MainMenuScreen;
 pub use manage_packages::ManagePackagesScreen;
+pub mod manage_templates;
+pub use manage_templates::ManageTemplatesScreen;
 pub use manage_profiles::ManageProfilesScreen;
 pub use profile_selection::ProfileSelectionScreen;
 pub use screen_trait::{ActionResult, RenderContext, Screen, ScreenAction, ScreenContext};

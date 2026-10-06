@@ -32,6 +32,7 @@ fn create_profile_initializes_directory_and_manifest() -> Result<()> {
         inherits: None,
         synced_files: Vec::new(),
         packages: Vec::new(),
+        templates: Vec::new(),
     });
     manifest.save(&env.repo_path)?;
 
@@ -85,6 +86,7 @@ fn create_profile_copies_from_existing() -> Result<()> {
         inherits: None,
         synced_files: default_files,
         packages: Vec::new(),
+        templates: Vec::new(),
     });
     manifest.save(&env.repo_path)?;
 

@@ -15,6 +15,7 @@ pub mod style;
 pub mod symlink_manager;
 pub mod sync_validation;
 pub mod syntax_theme;
+pub mod template_engine;
 pub mod text;
 pub mod text_input;
 pub mod versioned;

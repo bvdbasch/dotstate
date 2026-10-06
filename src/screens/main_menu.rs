@@ -26,6 +26,7 @@ pub enum MenuItem {
     SyncWithRemote,
     ManageProfiles,
     ManagePackages,
+    ManageTemplates,
     SetupRepository,
     Settings,
 }
@@ -39,6 +40,7 @@ impl MenuItem {
             MenuItem::SyncWithRemote,
             MenuItem::ManageProfiles,
             MenuItem::ManagePackages,
+            MenuItem::ManageTemplates,
             MenuItem::SetupRepository,
             MenuItem::Settings,
         ]
@@ -67,6 +69,7 @@ impl MenuItem {
             MenuItem::SyncWithRemote => icons.sync(),
             MenuItem::ManageProfiles => icons.profile(),
             MenuItem::ManagePackages => icons.package(),
+            MenuItem::ManageTemplates => icons.file(),
             MenuItem::SetupRepository => icons.git(),
             MenuItem::Settings => icons.cog(),
         }
@@ -80,6 +83,7 @@ impl MenuItem {
             MenuItem::SyncWithRemote => "Sync with Remote",
             MenuItem::ManageProfiles => "Manage Profiles",
             MenuItem::ManagePackages => "Manage Packages",
+            MenuItem::ManageTemplates => "Manage Templates",
             MenuItem::SetupRepository => "Setup git repository",
             MenuItem::Settings => "Settings",
         }
@@ -210,6 +214,16 @@ impl MenuItem {
                 ];
                 Text::from(lines)
             }
+            MenuItem::ManageTemplates => Text::from(vec![
+                Line::from("Render committed templates to arbitrary destinations"),
+                Line::from(""),
+                Line::from("Track a source, destination, and engine per profile."),
+                Line::from("Use op-inject for 1Password references, or custom commands."),
+                Line::from("Add, edit, remove, check, and render from this screen."),
+                Line::from("Rendered outputs are not symlinked or synced."),
+                Line::from(""),
+                Line::from("CLI: dotstate templates list / render / check"),
+            ]),
             MenuItem::ManagePackages => {
                 let lines = vec![
                     Line::from(vec![
@@ -393,6 +407,7 @@ impl MenuItem {
             MenuItem::SyncWithRemote => icons.sync(),
             MenuItem::ManageProfiles => icons.profile(),
             MenuItem::ManagePackages => icons.package(),
+            MenuItem::ManageTemplates => icons.file(),
             MenuItem::SetupRepository => icons.git(),
             MenuItem::Settings => icons.cog(),
         }
@@ -1057,6 +1072,7 @@ impl MainMenuScreen {
             MenuItem::SyncWithRemote => Ok(ScreenAction::Navigate(ScreenId::SyncWithRemote)),
             MenuItem::ManageProfiles => Ok(ScreenAction::Navigate(ScreenId::ManageProfiles)),
             MenuItem::ManagePackages => Ok(ScreenAction::Navigate(ScreenId::ManagePackages)),
+            MenuItem::ManageTemplates => Ok(ScreenAction::Navigate(ScreenId::ManageTemplates)),
             MenuItem::SetupRepository => Ok(ScreenAction::Navigate(ScreenId::StorageSetup)),
             MenuItem::Settings => Ok(ScreenAction::Navigate(ScreenId::Settings)),
         }

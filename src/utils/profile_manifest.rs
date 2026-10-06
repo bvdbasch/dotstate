@@ -983,9 +983,9 @@ synced_files = [".zshrc"]
 "#;
         std::fs::write(ProfileManifest::manifest_path(repo_path), v1_manifest).unwrap();
 
-        // Load should auto-migrate to v2
+        // Load should auto-migrate through to the current version
         let loaded = ProfileManifest::load(repo_path).unwrap();
-        assert_eq!(loaded.version, 2);
+        assert_eq!(loaded.version, CURRENT_VERSION);
         assert!(loaded.is_common_file(".gitconfig"));
         assert!(loaded.has_profile("work"));
         // inherits should default to None
@@ -1049,6 +1049,7 @@ synced_files = [".zshrc"]
             inherits: Some("b".to_string()),
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         });
         manifest.profiles.push(ProfileInfo {
             name: "b".to_string(),
@@ -1056,6 +1057,7 @@ synced_files = [".zshrc"]
             inherits: Some("a".to_string()),
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         let result = manifest.inheritance_chain("a");
@@ -1072,6 +1074,7 @@ synced_files = [".zshrc"]
             inherits: Some("nonexistent".to_string()),
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         let result = manifest.inheritance_chain("orphan");
@@ -1090,6 +1093,7 @@ synced_files = [".zshrc"]
             inherits: None,
             synced_files: vec![".zshrc".to_string(), ".vimrc".to_string()],
             packages: Vec::new(),
+            templates: Vec::new(),
         });
         manifest.profiles.push(ProfileInfo {
             name: "p2".to_string(),
@@ -1097,6 +1101,7 @@ synced_files = [".zshrc"]
             inherits: Some("p1".to_string()),
             synced_files: vec![".vimrc".to_string(), ".config/nvim".to_string()],
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         let resolved = manifest.resolve_files("p2").unwrap();
@@ -1128,6 +1133,7 @@ synced_files = [".zshrc"]
             inherits: None,
             synced_files: vec![".gitconfig".to_string()], // same as common
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         let resolved = manifest.resolve_files("p1").unwrap();
@@ -1146,6 +1152,7 @@ synced_files = [".zshrc"]
             inherits: None,
             synced_files: vec![".zshrc".to_string()],
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         let resolved = manifest.resolve_files("standalone").unwrap();
@@ -1197,6 +1204,7 @@ synced_files = [".zshrc"]
             inherits: None,
             synced_files: Vec::new(),
             packages: vec![eza_pkg.clone(), bat_pkg],
+            templates: Vec::new(),
         });
         manifest.profiles.push(ProfileInfo {
             name: "p2".to_string(),
@@ -1204,6 +1212,7 @@ synced_files = [".zshrc"]
             inherits: Some("p1".to_string()),
             synced_files: Vec::new(),
             packages: vec![fzf_pkg],
+            templates: Vec::new(),
         });
 
         let packages = manifest.resolve_packages("p2").unwrap();
@@ -1233,6 +1242,7 @@ synced_files = [".zshrc"]
             inherits: Some("ghost".to_string()),
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         assert!(manifest.validate_inheritance().is_err());
@@ -1247,6 +1257,7 @@ synced_files = [".zshrc"]
             inherits: Some("b".to_string()),
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         });
         manifest.profiles.push(ProfileInfo {
             name: "b".to_string(),
@@ -1254,6 +1265,7 @@ synced_files = [".zshrc"]
             inherits: Some("a".to_string()),
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         assert!(manifest.validate_inheritance().is_err());
@@ -1336,6 +1348,7 @@ synced_files = [".zshrc"]
             inherits: None,
             synced_files: vec![".zshrc".to_string(), ".bashrc".to_string()],
             packages: Vec::new(),
+            templates: Vec::new(),
         });
         manifest.profiles.push(ProfileInfo {
             name: "parent".to_string(),
@@ -1343,6 +1356,7 @@ synced_files = [".zshrc"]
             inherits: Some("grandparent".to_string()),
             synced_files: vec![".zshrc".to_string(), ".vimrc".to_string()], // overrides grandparent .zshrc
             packages: Vec::new(),
+            templates: Vec::new(),
         });
         manifest.profiles.push(ProfileInfo {
             name: "child".to_string(),
@@ -1350,6 +1364,7 @@ synced_files = [".zshrc"]
             inherits: Some("parent".to_string()),
             synced_files: vec![".config/nvim".to_string()], // adds new file only
             packages: Vec::new(),
+            templates: Vec::new(),
         });
 
         let resolved = manifest.resolve_files("child").unwrap();

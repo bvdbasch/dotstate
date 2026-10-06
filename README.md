@@ -251,6 +251,44 @@ Then add `fpath=(~/.zsh/completions $fpath)` to your .zshrc before your framewor
 5. **Common Files**: Files that are shared across all profiles are stored in the `common` section and linked regardless of the active profile
 6. **Sync**: Changes are committed and synced with GitHub automatically
 
+## Working with Templates
+
+Choose **Manage Templates** from the main menu to register committed template
+sources, choose an engine, and render them to a destination on your machine.
+The screen supports add, edit, remove, render selected, render all, and checking
+whether destination files exist. Controls follow your keymap and also support
+mouse clicks and scrolling. Rendering runs in the background so the TUI stays
+responsive.
+
+Templates live alongside files and packages in `.dotstate-profiles.toml`:
+
+```toml
+[[profiles]]
+name = "personal"
+synced_files = []
+packages = []
+
+[[profiles.templates]]
+name = "git config"
+source = "templates/git/config.tpl"
+destination = "~/.config/git/config"
+engine = "op-inject"
+```
+
+The source is relative to the repository root. `op-inject` invokes the external
+1Password CLI (`op inject`); `custom` runs a `render_command` using `sh -c`, with
+`{source}` and `{destination}` placeholders. Templates inherit from parent
+profiles, with child definitions overriding the same destination. Inherited
+entries are labelled in the TUI; edit their parent or add a child override.
+
+Rendered outputs are regular files, never automatically symlinked or registered
+for Git sync. Removing an entry retains both the source and output files.
+Existence status does not yet detect configuration drift. Keep private outputs
+outside the repository or explicitly ignored by Git; DotState does not add
+ignore rules for you.
+
+CLI equivalents: `dotstate templates list`, `add`, `remove`, `render`, and `check`.
+
 ## Working with Profiles
 
 Profiles are how DotState organizes your dotfiles for different machines or contexts. Each profile has its own set of files, while **Common Files** are shared across all profiles automatically.

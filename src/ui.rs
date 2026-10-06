@@ -12,6 +12,7 @@ pub enum Screen {
     ManageProfiles,
     ProfileSelection, // For selecting which profile to activate after setup
     ManagePackages,
+    ManageTemplates,
     Settings,
 }
 

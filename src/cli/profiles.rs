@@ -486,6 +486,7 @@ mod tests {
                     inherits: None,
                     synced_files: vec![".default-file".to_string()],
                     packages: Vec::new(),
+                    templates: Vec::new(),
                 },
                 ProfileInfo {
                     name: "work".to_string(),
@@ -493,6 +494,7 @@ mod tests {
                     inherits: None,
                     synced_files: vec![".work-file".to_string()],
                     packages: Vec::new(),
+                    templates: Vec::new(),
                 },
             ],
             ..ProfileManifest::default()

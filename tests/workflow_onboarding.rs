@@ -48,6 +48,7 @@ fn local_setup_creates_repo_and_config() -> Result<()> {
             inherits: None,
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         }],
         ..Default::default()
     };
@@ -194,6 +195,7 @@ fn github_setup_clones_existing_repo() -> Result<()> {
             inherits: None,
             synced_files: vec![".existing-file".to_string()],
             packages: Vec::new(),
+            templates: Vec::new(),
         }],
         ..Default::default()
     };
@@ -365,6 +367,7 @@ fn github_clone_empty_repo() -> Result<()> {
             inherits: None,
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         }],
         ..Default::default()
     };
@@ -462,6 +465,7 @@ fn setup_when_repo_path_is_already_git() -> Result<()> {
             inherits: None,
             synced_files: Vec::new(),
             packages: Vec::new(),
+            templates: Vec::new(),
         }],
         ..Default::default()
     };
@@ -525,6 +529,7 @@ fn github_clone_existing_dotstate_repo() -> Result<()> {
                 inherits: None,
                 synced_files: vec![".workrc".to_string()],
                 packages: Vec::new(),
+                templates: Vec::new(),
             },
             ProfileInfo {
                 name: "home".to_string(),
@@ -532,6 +537,7 @@ fn github_clone_existing_dotstate_repo() -> Result<()> {
                 inherits: None,
                 synced_files: vec![".homerc".to_string()],
                 packages: Vec::new(),
+                templates: Vec::new(),
             },
         ],
     };

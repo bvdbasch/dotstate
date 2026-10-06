@@ -21,6 +21,7 @@ pub mod packages;
 mod profiles;
 pub mod skill;
 mod sync;
+pub mod templates;
 mod upgrade;
 
 // Re-export common utilities for use by CLI commands
@@ -28,6 +29,7 @@ pub use common::*;
 
 // Re-export packages command enum for external use
 pub use packages::PackagesCommand;
+pub use templates::TemplatesCommand;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -133,6 +135,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: PackagesCommand,
     },
+    /// Manage templates for profiles
+    Templates {
+        #[command(subcommand)]
+        command: TemplatesCommand,
+    },
     /// Add a floating launcher app entry on Omarchy
     #[command(group(clap::ArgGroup::new("action").required(true).args(["install", "uninstall"])))]
     Omarchy {
@@ -186,6 +193,7 @@ impl Cli {
             Some(Commands::Repository) => info::cmd_repository(),
             Some(Commands::Upgrade { check }) => upgrade::execute(check),
             Some(Commands::Packages { command }) => packages::execute(command),
+            Some(Commands::Templates { command }) => templates::execute(command),
             Some(Commands::Omarchy { install, .. }) => omarchy::execute(install),
             Some(Commands::Completions { shell }) => completions::generate(shell),
             None => {

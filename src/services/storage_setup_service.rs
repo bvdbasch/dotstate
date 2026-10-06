@@ -396,6 +396,7 @@ impl StorageSetupService {
                 inherits: None,
                 synced_files: Vec::new(),
                 packages: Vec::new(),
+                templates: Vec::new(),
             }],
             ..Default::default()
         };
@@ -512,6 +513,7 @@ impl StorageSetupService {
                 inherits: None,
                 synced_files: Vec::new(),
                 packages: Vec::new(),
+                templates: Vec::new(),
             };
             manifest.profiles.push(default_profile);
 

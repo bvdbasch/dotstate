@@ -76,6 +76,22 @@ pub struct TemplateCreationParams<'a> {
 pub struct TemplateService;
 
 impl TemplateService {
+    /// Update an owned template by its index in the profile (not the resolved list).
+    pub fn update_template(repo_path: &Path, profile_name: &str, index: usize, template: Template) -> Result<()> {
+        let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
+        let profile = manifest
+            .profiles
+            .iter_mut()
+            .find(|p| p.name == profile_name)
+            .ok_or_else(|| anyhow::anyhow!("Profile '{profile_name}' not found"))?;
+        let entry = profile
+            .templates
+            .get_mut(index)
+            .ok_or_else(|| anyhow::anyhow!("Template index {index} out of bounds"))?;
+        *entry = template;
+        manifest.save(repo_path)
+    }
+
     /// Get the built-in template engines available on this system.
     ///
     /// `Custom` is always available; built-in engines require their backing

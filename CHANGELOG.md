@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Templates TUI**: Manage Templates menu and screen with add/edit/remove forms, built-in `op-inject` and custom engine selection, inherited-entry labels, destination existence checks, and background rendering of selected or all templates. Includes keymap-aware controls, mouse interaction, and scrollable forms for smaller terminals.
+
+### Fixed
+
+- **Templates**: Register the previously added CLI, service, and engine modules, and update profile constructors and migration tests for the template manifest schema.
+
 ---
 
 ## [0.4.1] - 2026-09-22

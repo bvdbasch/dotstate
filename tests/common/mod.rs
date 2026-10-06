@@ -604,6 +604,7 @@ impl TestEnvBuilder {
                 inherits: None,
                 synced_files: Vec::new(),
                 packages: Vec::new(),
+                templates: Vec::new(),
             });
         }
 
