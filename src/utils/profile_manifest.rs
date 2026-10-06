@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 /// Current version of the manifest file format.
 /// Increment this when making breaking changes to the schema.
-const CURRENT_VERSION: u32 = 2;
+const CURRENT_VERSION: u32 = 3;
 
 /// Maximum inheritance chain depth to prevent runaway resolution.
 const MAX_INHERITANCE_DEPTH: usize = 32;
@@ -83,6 +83,48 @@ pub struct Package {
     pub manager_check: Option<String>,
 }
 
+/// Template engine types.
+///
+/// Built-in engines map to a hardcoded render command (see
+/// `crate::utils::template_engine`), exactly like `PackageManager` variants map
+/// to hardcoded install commands. `Custom` is the escape hatch: it carries a
+/// user-supplied `render_command` that is executed via `sh -c`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "kebab-case")]
+pub enum TemplateEngine {
+    /// 1Password secret injection (`op inject -i <source> -o <destination>`)
+    OpInject,
+    /// Custom user-supplied render command (executed via `sh -c`)
+    Custom,
+}
+
+/// Template definition.
+///
+/// A template is a committed source file in the repo that is rendered to an
+/// arbitrary destination path by an engine. Unlike synced files, the rendered
+/// output is NOT symlinked or tracked by `DotState` — it is produced on demand
+/// (e.g. to materialize secrets resolved from a password manager) and is
+/// expected to be git-ignored at its destination.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Template {
+    /// Display name for the template
+    pub name: String,
+    /// Source template path, relative to the repo root (e.g. "git/config.tpl")
+    pub source: String,
+    /// Destination path where the rendered file lands.
+    /// May be absolute or start with `~` for the home directory.
+    pub destination: String,
+    /// Which engine renders this template
+    pub engine: TemplateEngine,
+    /// Render command (only for the `Custom` engine; derived for built-ins).
+    /// Supports `{source}` and `{destination}` placeholders.
+    #[serde(default)]
+    pub render_command: Option<String>,
+    /// Optional description (cached metadata, not required)
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
 /// Common section for files shared across all profiles
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CommonSection {
@@ -136,6 +178,9 @@ pub struct ProfileInfo {
     /// Packages/dependencies for this profile
     #[serde(default)]
     pub packages: Vec<Package>,
+    /// Templates rendered for this profile
+    #[serde(default)]
+    pub templates: Vec<Template>,
 }
 
 impl ProfileManifest {
@@ -338,6 +383,7 @@ impl ProfileManifest {
                 inherits,
                 synced_files: Vec::new(),
                 packages: Vec::new(),
+                templates: Vec::new(),
             });
         }
     }
@@ -452,6 +498,9 @@ impl ProfileManifest {
         if manifest.version == 1 {
             manifest = Self::migrate_v1_to_v2(manifest)?;
         }
+        if manifest.version == 2 {
+            manifest = Self::migrate_v2_to_v3(manifest)?;
+        }
         Ok(manifest)
     }
 
@@ -468,6 +517,14 @@ impl ProfileManifest {
     fn migrate_v1_to_v2(mut manifest: Self) -> Result<Self> {
         tracing::debug!("Migrating manifest v1 -> v2 (adds profile inheritance support)");
         manifest.version = 2;
+        Ok(manifest)
+    }
+
+    /// Migrate from v2 to v3 (adds `templates` field to profiles).
+    /// This is a no-op migration since `templates` defaults to an empty Vec via serde.
+    fn migrate_v2_to_v3(mut manifest: Self) -> Result<Self> {
+        tracing::debug!("Migrating manifest v2 -> v3 (adds template rendering support)");
+        manifest.version = 3;
         Ok(manifest)
     }
 
@@ -598,6 +655,32 @@ impl ProfileManifest {
         packages.sort_by(|a, b| a.name.cmp(&b.name));
 
         Ok(packages)
+    }
+
+    /// Resolve the full list of templates for a profile, walking the inheritance
+    /// chain and merging.
+    ///
+    /// Child templates override parent templates with the same `destination`
+    /// key (the rendered output location is what uniquely identifies a template).
+    pub fn resolve_templates(&self, profile_name: &str) -> Result<Vec<Template>> {
+        let chain = self.inheritance_chain(profile_name)?;
+
+        // Walk from root ancestor to child so child overrides parent
+        // Key: destination -> Template
+        let mut tpl_map: HashMap<String, Template> = HashMap::new();
+
+        for profile_name in chain.iter().rev() {
+            if let Some(profile) = self.profiles.iter().find(|p| &p.name == profile_name) {
+                for tpl in &profile.templates {
+                    tpl_map.insert(tpl.destination.clone(), tpl.clone());
+                }
+            }
+        }
+
+        let mut templates: Vec<Template> = tpl_map.into_values().collect();
+        templates.sort_by(|a, b| a.name.cmp(&b.name));
+
+        Ok(templates)
     }
 
     /// Validate the inheritance configuration of the entire manifest.
