@@ -97,11 +97,7 @@ fn fetch_via_cli(repo_path: &Path, remote_name: &str, branch: &str) -> Result<()
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!(
-            "Failed to fetch from remote '{}': {}",
-            remote_name,
-            stderr.trim()
-        );
+        anyhow::bail!("Failed to fetch from remote '{}': {}", remote_name, stderr.trim());
     }
     Ok(())
 }
@@ -122,11 +118,7 @@ fn push_via_cli(repo_path: &Path, remote_name: &str, refspec: &str) -> Result<()
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!(
-            "Failed to push to remote '{}': {}",
-            remote_name,
-            stderr.trim()
-        );
+        anyhow::bail!("Failed to push to remote '{}': {}", remote_name, stderr.trim());
     }
     Ok(())
 }
@@ -135,10 +127,7 @@ fn push_via_cli(repo_path: &Path, remote_name: &str, refspec: &str) -> Result<()
 ///
 /// Used for SSH URLs to ensure compatibility with all SSH agent implementations.
 fn clone_via_cli(url: &str, path: &Path) -> Result<()> {
-    info!(
-        "Using system git for SSH clone: {}",
-        redact_credentials(url)
-    );
+    info!("Using system git for SSH clone: {}", redact_credentials(url));
     let output = Command::new("git")
         .args(["clone", url, &path.to_string_lossy()])
         .stdin(std::process::Stdio::null())
@@ -167,8 +156,7 @@ impl GitManager {
     /// Open or initialize a repository
     pub fn open_or_init(repo_path: &Path) -> Result<Self> {
         let repo = if repo_path.join(".git").exists() {
-            Repository::open(repo_path)
-                .with_context(|| format!("Failed to open repository: {repo_path:?}"))?
+            Repository::open(repo_path).with_context(|| format!("Failed to open repository: {repo_path:?}"))?
         } else {
             // Initialize as a normal (non-bare) repository so it has a working directory
             let mut repo = Repository::init(repo_path)
@@ -261,8 +249,7 @@ impl GitManager {
     fn ensure_main_branch(repo: &Repository) -> Result<()> {
         // Check if HEAD exists and what branch it points to
         if let Ok(head) = repo.head() {
-            if let Some(branch_name) = head.name().ok().and_then(|n| n.strip_prefix("refs/heads/"))
-            {
+            if let Some(branch_name) = head.name().ok().and_then(|n| n.strip_prefix("refs/heads/")) {
                 if branch_name == "master" {
                     // Rename master to main
                     let master_ref = repo.find_reference("refs/heads/master")?;
@@ -344,11 +331,7 @@ impl GitManager {
         let mut parts = Vec::new();
 
         if added > 0 {
-            parts.push(format!(
-                "Add {} file{}",
-                added,
-                if added > 1 { "s" } else { "" }
-            ));
+            parts.push(format!("Add {} file{}", added, if added > 1 { "s" } else { "" }));
         }
         if modified > 0 {
             parts.push(format!(
@@ -358,11 +341,7 @@ impl GitManager {
             ));
         }
         if deleted > 0 {
-            parts.push(format!(
-                "Remove {} file{}",
-                deleted,
-                if deleted > 1 { "s" } else { "" }
-            ));
+            parts.push(format!("Remove {} file{}", deleted, if deleted > 1 { "s" } else { "" }));
         }
 
         let mut message = parts.join(", ");
@@ -398,10 +377,7 @@ impl GitManager {
         use tracing::info;
         info!("Starting commit: {}", message);
 
-        let mut index = self
-            .repo
-            .index()
-            .context("Failed to get repository index")?;
+        let mut index = self.repo.index().context("Failed to get repository index")?;
 
         // Refresh the index to ensure it's up to date
         index.read(true).context("Failed to refresh index")?;
@@ -427,19 +403,13 @@ impl GitManager {
         index.write().context("Failed to write index")?;
 
         let tree_id = index.write_tree().context("Failed to write tree")?;
-        let tree = self
-            .repo
-            .find_tree(tree_id)
-            .context("Failed to find tree")?;
+        let tree = self.repo.find_tree(tree_id).context("Failed to find tree")?;
 
         let signature = Self::get_signature()?;
         let head = self.repo.head();
 
         let parent_commit = if let Ok(head) = head {
-            Some(
-                head.peel_to_commit()
-                    .context("Failed to peel HEAD to commit")?,
-            )
+            Some(head.peel_to_commit().context("Failed to peel HEAD to commit")?)
         } else {
             None
         };
@@ -464,14 +434,7 @@ impl GitManager {
 
         let commit_oid = self
             .repo
-            .commit(
-                Some(branch_ref),
-                &signature,
-                &signature,
-                message,
-                &tree,
-                &parents,
-            )
+            .commit(Some(branch_ref), &signature, &signature, message, &tree, &parents)
             .context("Failed to create commit")?;
 
         // After first commit, ensure HEAD points to main
@@ -509,11 +472,7 @@ impl GitManager {
             .reset(parent.as_object(), git2::ResetType::Soft, None)
             .context("Failed to reset to parent commit")?;
 
-        info!(
-            "Reset HEAD from {} to {} (soft)",
-            head_commit.id(),
-            parent.id()
-        );
+        info!("Reset HEAD from {} to {} (soft)", head_commit.id(), parent.id());
         Ok(())
     }
 
@@ -554,9 +513,7 @@ impl GitManager {
                 .context("Failed to set HEAD to branch")?;
 
             // Get the commit the branch points to
-            let commit = reference
-                .peel_to_commit()
-                .context("Failed to get branch commit")?;
+            let commit = reference.peel_to_commit().context("Failed to get branch commit")?;
 
             // Reset working directory to match the branch
             self.repo
@@ -635,9 +592,7 @@ impl GitManager {
         let push_errors_clone = push_errors.clone();
         callbacks.push_update_reference(move |refname, status| {
             if let Some(error_msg) = status {
-                push_errors_clone
-                    .borrow_mut()
-                    .push(format!("{refname}: {error_msg}"));
+                push_errors_clone.borrow_mut().push(format!("{refname}: {error_msg}"));
             }
             Ok(())
         });
@@ -689,20 +644,18 @@ impl GitManager {
         }
 
         let refspec = format!("refs/heads/{branch}:refs/heads/{branch}");
-        remote
-            .push(&[&refspec], Some(&mut push_options))
-            .with_context(|| {
-                format!(
-                    "Failed to push to remote '{remote_name}' (URL: {}).\n\n\
+        remote.push(&[&refspec], Some(&mut push_options)).with_context(|| {
+            format!(
+                "Failed to push to remote '{remote_name}' (URL: {}).\n\n\
                     Check token permissions:\n\
                     • Classic tokens (ghp_): needs 'repo' scope\n\
                     • Fine-grained tokens (github_pat_): needs 'Contents' set to 'Read and write'\n\n\
                     Also verify:\n\
                     • Remote branch exists\n\
                     • You have push access to this repository",
-                    redact_credentials(&remote_url)
-                )
-            })?;
+                redact_credentials(&remote_url)
+            )
+        })?;
 
         // Check for server-side rejections (e.g., pre-receive hooks, push rules)
         // The push transport may succeed but the server can still reject individual refs
@@ -743,9 +696,7 @@ impl GitManager {
             callbacks.credentials(move |_url, username_from_url, allowed_types| {
                 // Only use userpass if it's allowed
                 if !allowed_types.is_user_pass_plaintext() {
-                    return Err(git2::Error::from_str(
-                        "User/password authentication not allowed",
-                    ));
+                    return Err(git2::Error::from_str("User/password authentication not allowed"));
                 }
                 // Use canonical GitHub token format: "x-access-token" as username
                 let username = username_from_url.unwrap_or("x-access-token");
@@ -922,25 +873,18 @@ impl GitManager {
                     .context("Failed to merge")?;
 
                 // Get the index after merge
-                let mut index = self
-                    .repo
-                    .index()
-                    .context("Failed to get index after merge")?;
+                let mut index = self.repo.index().context("Failed to get index after merge")?;
 
                 // Check if merge resulted in conflicts
                 if index.has_conflicts() {
-                    return Err(anyhow::anyhow!(
-                        "Merge conflicts detected. Please resolve manually."
-                    ));
+                    return Err(anyhow::anyhow!("Merge conflicts detected. Please resolve manually."));
                 }
 
                 // Write the index after merge
                 index.write().context("Failed to write index after merge")?;
 
                 // Create merge commit
-                let tree_id = index
-                    .write_tree()
-                    .context("Failed to write tree after merge")?;
+                let tree_id = index.write_tree().context("Failed to write tree after merge")?;
                 let tree = self
                     .repo
                     .find_tree(tree_id)
@@ -962,19 +906,13 @@ impl GitManager {
                     .context("Failed to commit merge")?;
 
                 // Clean up merge state
-                self.repo
-                    .cleanup_state()
-                    .context("Failed to cleanup merge state")?;
+                self.repo.cleanup_state().context("Failed to cleanup merge state")?;
             }
         } else {
             // No local commits, just update HEAD to point to remote
             let branch_ref = format!("refs/heads/{branch}");
-            self.repo.reference(
-                &branch_ref,
-                fetch_commit.id(),
-                true,
-                "Update branch from remote",
-            )?;
+            self.repo
+                .reference(&branch_ref, fetch_commit.id(), true, "Update branch from remote")?;
             self.repo.set_head(&branch_ref)?;
             self.repo
                 .checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
@@ -985,16 +923,8 @@ impl GitManager {
 
     /// Pull changes from remote with rebase (instead of merge)
     /// Returns the number of commits pulled from remote
-    pub fn pull_with_rebase(
-        &self,
-        remote_name: &str,
-        branch: &str,
-        token: Option<&str>,
-    ) -> Result<usize> {
-        info!(
-            "Pulling with rebase from remote: {} (branch: {})",
-            remote_name, branch
-        );
+    pub fn pull_with_rebase(&self, remote_name: &str, branch: &str, token: Option<&str>) -> Result<usize> {
+        info!("Pulling with rebase from remote: {} (branch: {})", remote_name, branch);
 
         let remote_url = self.get_remote_url(remote_name)?;
 
@@ -1085,12 +1015,8 @@ impl GitManager {
                 // Local is at merge base, we can fast-forward
                 debug!("Fast-forwarding to remote HEAD");
                 let branch_ref = format!("refs/heads/{branch}");
-                self.repo.reference(
-                    &branch_ref,
-                    fetch_commit_id,
-                    true,
-                    "Fast-forward to remote",
-                )?;
+                self.repo
+                    .reference(&branch_ref, fetch_commit_id, true, "Fast-forward to remote")?;
                 self.repo
                     .checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
                 return Ok(pulled_count);
@@ -1124,12 +1050,7 @@ impl GitManager {
             // branch = our local commits, upstream = remote HEAD, onto = None (use upstream)
             let mut rebase = self
                 .repo
-                .rebase(
-                    Some(&branch_annotated),
-                    Some(&upstream_annotated),
-                    None,
-                    None,
-                )
+                .rebase(Some(&branch_annotated), Some(&upstream_annotated), None, None)
                 .context("Failed to initialize rebase")?;
 
             let signature = Self::get_signature()?;
@@ -1184,26 +1105,17 @@ impl GitManager {
             }
 
             // Finish the rebase
-            rebase
-                .finish(Some(&signature))
-                .context("Failed to finish rebase")?;
+            rebase.finish(Some(&signature)).context("Failed to finish rebase")?;
 
             // After rebase, we need to explicitly update the branch reference
             // to point to the new HEAD (which now contains the rebased commits)
-            let head = self
-                .repo
-                .head()
-                .context("Failed to get HEAD after rebase")?;
+            let head = self.repo.head().context("Failed to get HEAD after rebase")?;
             let head_commit = head
                 .peel_to_commit()
                 .context("Failed to peel HEAD to commit after rebase")?;
 
-            self.repo.reference(
-                &branch_ref,
-                head_commit.id(),
-                true,
-                "Update branch after rebase",
-            )?;
+            self.repo
+                .reference(&branch_ref, head_commit.id(), true, "Update branch after rebase")?;
 
             // Set HEAD to point to the branch (not detached)
             self.repo.set_head(&branch_ref)?;
@@ -1221,12 +1133,8 @@ impl GitManager {
         } else {
             // No local commits, just update HEAD to point to remote
             let branch_ref = format!("refs/heads/{branch}");
-            self.repo.reference(
-                &branch_ref,
-                fetch_commit_id,
-                true,
-                "Update branch from remote",
-            )?;
+            self.repo
+                .reference(&branch_ref, fetch_commit_id, true, "Update branch from remote")?;
             self.repo.set_head(&branch_ref)?;
             self.repo
                 .checkout_head(Some(git2::build::CheckoutBuilder::default().force()))?;
@@ -1402,10 +1310,7 @@ impl GitManager {
         // Reconfigure tracking
         self.configure_remote_tracking(remote_name)?;
 
-        info!(
-            "Updated remote URL: embed_credentials={}",
-            embed_credentials
-        );
+        info!("Updated remote URL: embed_credentials={}", embed_credentials);
         Ok(())
     }
 
@@ -1467,10 +1372,7 @@ impl GitManager {
             // Set up tracking via git config
             // Format: branch.<name>.remote = <remote>
             // Format: branch.<name>.merge = refs/heads/<name>
-            let mut config = self
-                .repo
-                .config()
-                .context("Failed to get repository config")?;
+            let mut config = self.repo.config().context("Failed to get repository config")?;
 
             let remote_key = format!("branch.{branch_name}.remote");
             let merge_key = format!("branch.{branch_name}.merge");
@@ -1488,10 +1390,7 @@ impl GitManager {
     /// Set upstream tracking for a branch (public method for use after push)
     pub fn set_upstream_tracking(&self, remote_name: &str, branch_name: &str) -> Result<()> {
         // Set up tracking via git config
-        let mut config = self
-            .repo
-            .config()
-            .context("Failed to get repository config")?;
+        let mut config = self.repo.config().context("Failed to get repository config")?;
 
         let remote_key = format!("branch.{branch_name}.remote");
         let merge_key = format!("branch.{branch_name}.merge");
@@ -1533,10 +1432,7 @@ impl GitManager {
 
     /// Check if there are uncommitted changes
     pub fn has_uncommitted_changes(&self) -> Result<bool> {
-        let mut index = self
-            .repo
-            .index()
-            .context("Failed to get repository index")?;
+        let mut index = self.repo.index().context("Failed to get repository index")?;
 
         // Refresh the index to get current state
         index.read(true).context("Failed to read index")?;
@@ -1600,9 +1496,7 @@ impl GitManager {
             Err(_) => return Ok(false), // No local branch
         };
 
-        let local_oid = local_branch
-            .target()
-            .context("Failed to get local branch OID")?;
+        let local_oid = local_branch.target().context("Failed to get local branch OID")?;
 
         // Fetch from remote to update remote refs
         let mut remote_callbacks = RemoteCallbacks::new();
@@ -1625,9 +1519,7 @@ impl GitManager {
             Err(_) => return Ok(true), // No remote branch, so we have unpushed commits
         };
 
-        let remote_oid = remote_branch
-            .target()
-            .context("Failed to get remote branch OID")?;
+        let remote_oid = remote_branch.target().context("Failed to get remote branch OID")?;
 
         // Check if local is ahead of remote (local commit is reachable from remote)
         match self.repo.graph_ahead_behind(local_oid, remote_oid) {
@@ -1642,8 +1534,7 @@ impl GitManager {
         let head = self.repo.head().ok()?;
         let name = head.name().ok()?;
         // Remove 'refs/heads/' prefix
-        name.strip_prefix("refs/heads/")
-            .map(std::string::ToString::to_string)
+        name.strip_prefix("refs/heads/").map(std::string::ToString::to_string)
     }
 
     /// Get list of changed files (modified, added, deleted)
@@ -1720,24 +1611,17 @@ impl GitManager {
     ) -> Result<(Self, bool)> {
         // Check if repository already exists
         if path.join(".git").exists() {
-            debug!(
-                "Repository already exists at {:?}, attempting to open",
-                path
-            );
+            debug!("Repository already exists at {:?}, attempting to open", path);
 
             match Self::open_or_init(path) {
                 Ok(git_manager) => {
                     // Validate remote URL matches (comparing without credentials)
                     if let Err(e) = git_manager.validate_remote_url("origin", url) {
-                        info!(
-                            "Existing repo remote mismatch: {}. Will remove and clone fresh.",
-                            e
-                        );
+                        info!("Existing repo remote mismatch: {}. Will remove and clone fresh.", e);
                         // Remove and clone fresh
                         std::fs::remove_dir_all(path)
                             .with_context(|| format!("Failed to remove directory {path:?}"))?;
-                        let manager =
-                            Self::clone_with_options(url, path, token, embed_credentials)?;
+                        let manager = Self::clone_with_options(url, path, token, embed_credentials)?;
                         return Ok((manager, false));
                     }
 
@@ -1750,18 +1634,13 @@ impl GitManager {
                         path, e
                     );
                     // Not a valid repo, remove it
-                    std::fs::remove_dir_all(path)
-                        .with_context(|| format!("Failed to remove directory {path:?}"))?;
+                    std::fs::remove_dir_all(path).with_context(|| format!("Failed to remove directory {path:?}"))?;
                 }
             }
         } else if path.exists() {
             // Directory exists but not a git repo, remove it
-            info!(
-                "Directory exists at {:?} but is not a git repo. Removing.",
-                path
-            );
-            std::fs::remove_dir_all(path)
-                .with_context(|| format!("Failed to remove directory {path:?}"))?;
+            info!("Directory exists at {:?} but is not a git repo. Removing.", path);
+            std::fs::remove_dir_all(path).with_context(|| format!("Failed to remove directory {path:?}"))?;
         }
 
         // Clone fresh
@@ -1836,18 +1715,13 @@ impl GitManager {
     }
 
     /// Clone a repository with explicit control over credential embedding.
-    pub fn clone_with_options(
-        url: &str,
-        path: &Path,
-        token: Option<&str>,
-        embed_credentials: bool,
-    ) -> Result<Self> {
+    pub fn clone_with_options(url: &str, path: &Path, token: Option<&str>, embed_credentials: bool) -> Result<Self> {
         // Use system git for SSH URLs (libssh2 has compatibility issues with
         // some SSH agents like 1Password, `YubiKey`, Secretive)
         if is_ssh_url(url) {
             clone_via_cli(url, path)?;
-            let repo = Repository::open(path)
-                .with_context(|| format!("Failed to open cloned repository at {path:?}"))?;
+            let repo =
+                Repository::open(path).with_context(|| format!("Failed to open cloned repository at {path:?}"))?;
             return Ok(Self { repo });
         }
 
@@ -1882,9 +1756,7 @@ impl GitManager {
                 let mut callbacks = RemoteCallbacks::new();
                 callbacks.credentials(move |_url, username_from_url, allowed_types| {
                     if !allowed_types.is_user_pass_plaintext() {
-                        return Err(git2::Error::from_str(
-                            "User/password authentication not allowed",
-                        ));
+                        return Err(git2::Error::from_str("User/password authentication not allowed"));
                     }
                     let username = username_from_url.unwrap_or("x-access-token");
                     Cred::userpass_plaintext(username, &token_clone)
@@ -1975,14 +1847,10 @@ impl GitManager {
             let path_obj = Path::new(path);
             if path_obj.exists() && path_obj.is_file() {
                 // Check if it's untracked
-                let status = self
-                    .repo
-                    .status_file(path_obj)
-                    .unwrap_or(git2::Status::empty());
+                let status = self.repo.status_file(path_obj).unwrap_or(git2::Status::empty());
                 if status.contains(git2::Status::WT_NEW) {
                     return Ok(Some(
-                        std::fs::read_to_string(path_obj)
-                            .unwrap_or_else(|_| "Binary file or unreadable".to_string()),
+                        std::fs::read_to_string(path_obj).unwrap_or_else(|_| "Binary file or unreadable".to_string()),
                     ));
                 }
             }
@@ -2094,9 +1962,7 @@ pub fn validate_local_repo(path: &Path) -> LocalRepoValidation {
             has_git: false,
             has_origin: false,
             remote_url: None,
-            error_message: Some(
-                "Not a git repository. Run 'git clone <url> <path>' first.".to_string(),
-            ),
+            error_message: Some("Not a git repository. Run 'git clone <url> <path>' first.".to_string()),
             warning_message: None,
         };
     }
@@ -2125,10 +1991,7 @@ pub fn validate_local_repo(path: &Path) -> LocalRepoValidation {
                 has_git: true,
                 has_origin: false,
                 remote_url: None,
-                error_message: Some(
-                    "No 'origin' remote found. Run 'git remote add origin <url>' first."
-                        .to_string(),
-                ),
+                error_message: Some("No 'origin' remote found. Run 'git remote add origin <url>' first.".to_string()),
                 warning_message: None,
             };
         }
@@ -2314,10 +2177,7 @@ mod tests {
         assert!(!result.is_valid);
         assert!(!result.has_git);
         assert!(!result.has_origin);
-        assert!(result
-            .error_message
-            .unwrap()
-            .contains("Not a git repository"));
+        assert!(result.error_message.unwrap().contains("Not a git repository"));
     }
 
     #[test]
@@ -2347,10 +2207,7 @@ mod tests {
         assert!(result.has_git);
         assert!(result.has_origin);
         assert!(result.error_message.is_none());
-        assert_eq!(
-            result.remote_url,
-            Some("https://github.com/test/test.git".to_string())
-        );
+        assert_eq!(result.remote_url, Some("https://github.com/test/test.git".to_string()));
     }
 
     #[test]
@@ -2394,12 +2251,7 @@ mod tests {
 
         // Add an origin remote so the repo passes validation.
         let _ = Command::new("git")
-            .args([
-                "remote",
-                "add",
-                "origin",
-                "https://github.com/test/test.git",
-            ])
+            .args(["remote", "add", "origin", "https://github.com/test/test.git"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();

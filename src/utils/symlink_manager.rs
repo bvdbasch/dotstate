@@ -140,11 +140,7 @@ impl SymlinkManager {
     ///
     /// This is primarily used for testing to avoid polluting the real user's
     /// config directory with test data.
-    pub fn new_with_config_dir(
-        repo_path: PathBuf,
-        backup_enabled: bool,
-        config_dir: PathBuf,
-    ) -> Result<Self> {
+    pub fn new_with_config_dir(repo_path: PathBuf, backup_enabled: bool, config_dir: PathBuf) -> Result<Self> {
         // Ensure config directory exists
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir).context("Failed to create config directory")?;
@@ -154,8 +150,7 @@ impl SymlinkManager {
 
         // Load existing tracking data or create new
         let mut tracking: SymlinkTracking = if tracking_file.exists() {
-            let data =
-                fs::read_to_string(&tracking_file).context("Failed to read tracking file")?;
+            let data = fs::read_to_string(&tracking_file).context("Failed to read tracking file")?;
             serde_json::from_str(&data).context("Failed to parse tracking file")?
         } else {
             SymlinkTracking::default()
@@ -164,15 +159,11 @@ impl SymlinkManager {
         // Migrate if needed
         if tracking_file.exists() && tracking.version < CURRENT_VERSION {
             let old_version = tracking.version;
-            info!(
-                "Migrating symlinks.json from v{} to v{}",
-                old_version, CURRENT_VERSION
-            );
+            info!("Migrating symlinks.json from v{} to v{}", old_version, CURRENT_VERSION);
             tracking = SymlinkTracking::migrate(tracking)?;
 
             // Backup, save, cleanup
-            let tracking_json =
-                serde_json::to_string_pretty(&tracking).context("Failed to serialize tracking")?;
+            let tracking_json = serde_json::to_string_pretty(&tracking).context("Failed to serialize tracking")?;
             super::migrate_file(&tracking_file, old_version, "json", || {
                 fs::write(&tracking_file, &tracking_json).context("Failed to write tracking file")
             })?;
@@ -195,13 +186,8 @@ impl SymlinkManager {
     }
 
     /// Activate a profile by creating all its symlinks
-    pub fn activate_profile(
-        &mut self,
-        profile_name: &str,
-        files: &[String],
-    ) -> Result<Vec<SymlinkOperation>> {
-        let resolved =
-            crate::utils::profile_manifest::ResolvedFile::from_files(profile_name, files);
+    pub fn activate_profile(&mut self, profile_name: &str, files: &[String]) -> Result<Vec<SymlinkOperation>> {
+        let resolved = crate::utils::profile_manifest::ResolvedFile::from_files(profile_name, files);
         self.activate_resolved(profile_name, &resolved)
     }
 
@@ -260,10 +246,7 @@ impl SymlinkManager {
         // Update tracking
         self.tracking.active_profile = profile_name.to_string();
         for op in &operations {
-            if matches!(
-                op.status,
-                OperationStatus::Success | OperationStatus::Skipped(_)
-            ) {
+            if matches!(op.status, OperationStatus::Success | OperationStatus::Skipped(_)) {
                 let already_tracked = self.tracking.symlinks.iter().any(|s| s.target == op.target);
                 if !already_tracked {
                     self.tracking.symlinks.push(TrackedSymlink {
@@ -303,10 +286,7 @@ impl SymlinkManager {
         _profile_name: &str, // Kept for API compatibility, but we deactivate ALL symlinks
         restore_files: bool,
     ) -> Result<Vec<SymlinkOperation>> {
-        info!(
-            "Deactivating all symlinks (restore_files: {})",
-            restore_files
-        );
+        info!("Deactivating all symlinks (restore_files: {})", restore_files);
         let mut operations = Vec::new();
 
         // Deactivate ALL tracked symlinks (profile + common)
@@ -366,8 +346,7 @@ impl SymlinkManager {
 
                         if resolved.starts_with(&common_path) {
                             // Check if we already processed this in tracked symlinks
-                            let already_processed =
-                                operations.iter().any(|op| op.target == target_path);
+                            let already_processed = operations.iter().any(|op| op.target == target_path);
 
                             if !already_processed {
                                 info!("Found untracked common symlink: {:?}", target_path);
@@ -395,21 +374,13 @@ impl SymlinkManager {
         self.tracking.active_profile.clear();
 
         self.save_tracking()?;
-        info!(
-            "Deactivated all symlinks ({} symlinks removed)",
-            operations.len()
-        );
+        info!("Deactivated all symlinks ({} symlinks removed)", operations.len());
 
         Ok(operations)
     }
 
     /// Switch from one profile to another
-    pub fn switch_profile(
-        &mut self,
-        from: &str,
-        to: &str,
-        to_files: &[String],
-    ) -> Result<SwitchReport> {
+    pub fn switch_profile(&mut self, from: &str, to: &str, to_files: &[String]) -> Result<SwitchReport> {
         info!("Switching profile: {} -> {}", from, to);
 
         let mut report = SwitchReport {
@@ -447,9 +418,7 @@ impl SymlinkManager {
                 report.rollback_performed = false;
                 report.errors.push((
                     PathBuf::from("rollback"),
-                    format!(
-                        "Rollback not fully supported - profile '{from}' may need manual reactivation"
-                    ),
+                    format!("Rollback not fully supported - profile '{from}' may need manual reactivation"),
                 ));
             }
         }
@@ -459,12 +428,7 @@ impl SymlinkManager {
 
     /// Preview what would happen during a switch (dry run)
     #[allow(dead_code)]
-    pub fn preview_switch(
-        &self,
-        from: &str,
-        to: &str,
-        to_files: &[String],
-    ) -> Result<SwitchPreview> {
+    pub fn preview_switch(&self, from: &str, to: &str, to_files: &[String]) -> Result<SwitchPreview> {
         let profile_path = self.repo_path.join(from);
         let new_profile_path = self.repo_path.join(to);
         let home_dir = crate::utils::get_home_dir();
@@ -508,9 +472,7 @@ impl SymlinkManager {
         }
 
         // Check if it's a symlink
-        let metadata = path
-            .symlink_metadata()
-            .context("Failed to read symlink metadata")?;
+        let metadata = path.symlink_metadata().context("Failed to read symlink metadata")?;
 
         if !metadata.is_symlink() {
             return Ok(false);
@@ -541,12 +503,7 @@ impl SymlinkManager {
     }
 
     /// Create a symlink, backing up any existing file
-    fn create_symlink(
-        &self,
-        source: &Path,
-        target: &Path,
-        relative_name: &str,
-    ) -> Result<SymlinkOperation> {
+    fn create_symlink(&self, source: &Path, target: &Path, relative_name: &str) -> Result<SymlinkOperation> {
         let timestamp = Utc::now();
         info!("Creating symlink: {:?} -> {:?}", target, source);
 
@@ -588,19 +545,20 @@ impl SymlinkManager {
                             }
                         };
 
-                        let source_normalized =
-                            source.canonicalize().unwrap_or(source.to_path_buf());
+                        let source_normalized = source.canonicalize().unwrap_or(source.to_path_buf());
 
                         if existing_normalized == source_normalized {
                             // Already points to the right place, skip
-                            debug!("Symlink already exists and points to correct location: {:?} -> {:?}", target, source);
+                            debug!(
+                                "Symlink already exists and points to correct location: {:?} -> {:?}",
+                                target, source
+                            );
                             return Ok(SymlinkOperation {
                                 source: source.to_path_buf(),
                                 target: target.to_path_buf(),
                                 backup: None,
                                 status: OperationStatus::Skipped(
-                                    "Symlink already exists and points to correct location"
-                                        .to_string(),
+                                    "Symlink already exists and points to correct location".to_string(),
                                 ),
                                 timestamp,
                             });
@@ -610,21 +568,18 @@ impl SymlinkManager {
                         // if it exists, then remove the symlink
                         if existing_normalized.exists() {
                             // Try to canonicalize, but if it fails (orphaned symlink), use the path as-is
-                            let resolved = existing_normalized
-                                .canonicalize()
-                                .unwrap_or(existing_normalized);
+                            let resolved = existing_normalized.canonicalize().unwrap_or(existing_normalized);
                             if resolved.exists() {
                                 // The symlink points to an existing file - back it up
                                 if let Some(ref session) = self.backup_session {
                                     if let Some(ref backup_mgr) = self.backup_manager {
-                                        match backup_mgr.backup_path(
-                                            session,
-                                            &resolved,
-                                            relative_name,
-                                        ) {
+                                        match backup_mgr.backup_path(session, &resolved, relative_name) {
                                             Ok(backup) => backup_path = Some(backup),
                                             Err(e) => {
-                                                warn!("Failed to backup file pointed to by symlink {:?}: {}", target, e);
+                                                warn!(
+                                                    "Failed to backup file pointed to by symlink {:?}: {}",
+                                                    target, e
+                                                );
                                                 // Continue anyway - we'll still remove the symlink
                                             }
                                         }
@@ -634,9 +589,8 @@ impl SymlinkManager {
                         }
                     }
                     // Remove the symlink (whether we backed up or not)
-                    fs::remove_file(target).with_context(|| {
-                        format!("Failed to remove existing symlink: {target:?}")
-                    })?;
+                    fs::remove_file(target)
+                        .with_context(|| format!("Failed to remove existing symlink: {target:?}"))?;
                 } else if metadata.is_file() || metadata.is_dir() {
                     // It's a real file or directory, back it up
                     if let Some(ref session) = self.backup_session {
@@ -651,13 +605,11 @@ impl SymlinkManager {
                         }
                     }
                     if metadata.is_dir() {
-                        fs::remove_dir_all(target).with_context(|| {
-                            format!("Failed to remove existing directory: {target:?}")
-                        })?;
+                        fs::remove_dir_all(target)
+                            .with_context(|| format!("Failed to remove existing directory: {target:?}"))?;
                     } else {
-                        fs::remove_file(target).with_context(|| {
-                            format!("Failed to remove existing file: {target:?}")
-                        })?;
+                        fs::remove_file(target)
+                            .with_context(|| format!("Failed to remove existing file: {target:?}"))?;
                     }
                 }
             }
@@ -683,9 +635,8 @@ impl SymlinkManager {
         #[cfg(windows)]
         {
             debug!("Creating Windows symlink: {:?} -> {:?}", target, source);
-            std::os::windows::fs::symlink_file(source, target).with_context(|| {
-                format!("Failed to create symlink: {:?} -> {:?}", target, source)
-            })?;
+            std::os::windows::fs::symlink_file(source, target)
+                .with_context(|| format!("Failed to create symlink: {:?} -> {:?}", target, source))?;
         }
 
         info!("Successfully created symlink: {:?} -> {:?}", target, source);
@@ -709,10 +660,7 @@ impl SymlinkManager {
 
         // Check if the symlink still exists
         if !tracked.target.exists() && tracked.target.symlink_metadata().is_err() {
-            debug!(
-                "Symlink does not exist, skipping removal: {:?}",
-                tracked.target
-            );
+            debug!("Symlink does not exist, skipping removal: {:?}", tracked.target);
             return Ok(SymlinkOperation {
                 source: tracked.source.clone(),
                 target: tracked.target.clone(),
@@ -724,10 +672,7 @@ impl SymlinkManager {
 
         // Verify it's still our symlink
         if !self.is_our_symlink(&tracked.target)? {
-            warn!(
-                "Target is not our symlink, skipping removal: {:?}",
-                tracked.target
-            );
+            warn!("Target is not our symlink, skipping removal: {:?}", tracked.target);
             return Ok(SymlinkOperation {
                 source: tracked.source.clone(),
                 target: tracked.target.clone(),
@@ -770,19 +715,13 @@ impl SymlinkManager {
                                 "Restoring directory from repo: {:?} -> {:?}",
                                 tracked.source, tracked.target
                             );
-                            match crate::file_manager::copy_dir_all(
-                                &tracked.source,
-                                &tracked.target,
-                            ) {
+                            match crate::file_manager::copy_dir_all(&tracked.source, &tracked.target) {
                                 Ok(()) => {
                                     info!("Restored directory from repo: {:?}", tracked.target);
                                     true
                                 }
                                 Err(e) => {
-                                    warn!(
-                                        "Failed to restore directory {:?}: {}",
-                                        tracked.target, e
-                                    );
+                                    warn!("Failed to restore directory {:?}: {}", tracked.target, e);
                                     false
                                 }
                             }
@@ -818,10 +757,7 @@ impl SymlinkManager {
                             tracked.source, backup
                         );
                         // Restore from backup (last resort)
-                        debug!(
-                            "Restoring from backup: {:?} -> {:?}",
-                            backup, tracked.target
-                        );
+                        debug!("Restoring from backup: {:?} -> {:?}", backup, tracked.target);
                         match fs::rename(backup, &tracked.target) {
                             Ok(()) => {
                                 info!("Restored from backup: {:?}", tracked.target);
@@ -926,8 +862,7 @@ impl SymlinkManager {
     /// Save tracking data to disk.
     /// Uses atomic write (temp file + rename) to prevent corruption on crash.
     pub fn save_tracking(&self) -> Result<()> {
-        let json = serde_json::to_string_pretty(&self.tracking)
-            .context("Failed to serialize tracking data")?;
+        let json = serde_json::to_string_pretty(&self.tracking).context("Failed to serialize tracking data")?;
         let temp_path = self.tracking_file.with_extension("json.tmp");
 
         // Ensure config directory exists
@@ -939,8 +874,7 @@ impl SymlinkManager {
         fs::write(&temp_path, &json).context("Failed to write temp tracking file")?;
 
         // Atomic rename (on POSIX systems)
-        fs::rename(&temp_path, &self.tracking_file)
-            .context("Failed to rename temp tracking file")?;
+        fs::rename(&temp_path, &self.tracking_file).context("Failed to rename temp tracking file")?;
 
         debug!("Tracking data saved to: {:?}", self.tracking_file);
         Ok(())
@@ -969,11 +903,7 @@ impl SymlinkManager {
     /// Rename a profile and update all associated symlinks
     /// This updates the source paths in the tracking file and recreates symlinks
     /// to point to the new profile folder location
-    pub fn rename_profile(
-        &mut self,
-        old_name: &str,
-        new_name: &str,
-    ) -> Result<Vec<SymlinkOperation>> {
+    pub fn rename_profile(&mut self, old_name: &str, new_name: &str) -> Result<Vec<SymlinkOperation>> {
         info!("Renaming profile: {} -> {}", old_name, new_name);
 
         let old_profile_path = self.repo_path.join(old_name);
@@ -1004,10 +934,7 @@ impl SymlinkManager {
             let relative_path = match symlink.source.strip_prefix(&old_profile_path) {
                 Ok(path) => path,
                 Err(e) => {
-                    error!(
-                        "Failed to get relative path from {:?}: {}",
-                        symlink.source, e
-                    );
+                    error!("Failed to get relative path from {:?}: {}", symlink.source, e);
                     continue;
                 }
             };
@@ -1035,10 +962,7 @@ impl SymlinkManager {
             let relative_path = match symlink.source.strip_prefix(&old_profile_path) {
                 Ok(path) => path,
                 Err(e) => {
-                    error!(
-                        "Failed to get relative path from {:?}: {}",
-                        symlink.source, e
-                    );
+                    error!("Failed to get relative path from {:?}: {}", symlink.source, e);
                     continue;
                 }
             };
@@ -1081,11 +1005,7 @@ impl SymlinkManager {
     /// # Returns
     ///
     /// The symlink operation result
-    pub fn add_symlink_to_profile(
-        &mut self,
-        profile_name: &str,
-        relative_path: &str,
-    ) -> Result<SymlinkOperation> {
+    pub fn add_symlink_to_profile(&mut self, profile_name: &str, relative_path: &str) -> Result<SymlinkOperation> {
         let profile_path = self.repo_path.join(profile_name);
         let source = profile_path.join(relative_path);
         let home_dir = crate::utils::get_home_dir();
@@ -1150,8 +1070,7 @@ impl SymlinkManager {
         profile_name: &str,
         files: &[String],
     ) -> Result<(usize, usize, Vec<String>)> {
-        let resolved =
-            crate::utils::profile_manifest::ResolvedFile::from_files(profile_name, files);
+        let resolved = crate::utils::profile_manifest::ResolvedFile::from_files(profile_name, files);
         self.ensure_resolved_symlinks(profile_name, &resolved)
     }
 
@@ -1216,19 +1135,13 @@ impl SymlinkManager {
                         let source_normalized = source.canonicalize().unwrap_or(source.clone());
 
                         if existing_normalized == source_normalized {
-                            debug!(
-                                "Symlink already exists and is correct, skipping: {:?}",
-                                target
-                            );
+                            debug!("Symlink already exists and is correct, skipping: {:?}", target);
                             skipped_count += 1;
                             continue;
                         }
                     }
                 } else {
-                    errors.push(format!(
-                        "File exists at {} (not a symlink)",
-                        resolved.relative_path
-                    ));
+                    errors.push(format!("File exists at {} (not a symlink)", resolved.relative_path));
                     continue;
                 }
             }
@@ -1255,17 +1168,11 @@ impl SymlinkManager {
                             "Failed to create symlink for {}: {:?}",
                             resolved.relative_path, operation.status
                         );
-                        errors.push(format!(
-                            "Failed to create symlink for {}",
-                            resolved.relative_path
-                        ));
+                        errors.push(format!("Failed to create symlink for {}", resolved.relative_path));
                     }
                 }
                 Err(e) => {
-                    error!(
-                        "Error creating symlink for {}: {}",
-                        resolved.relative_path, e
-                    );
+                    error!("Error creating symlink for {}: {}", resolved.relative_path, e);
                     errors.push(format!("Error for {}: {e}", resolved.relative_path));
                 }
             }
@@ -1298,11 +1205,7 @@ impl SymlinkManager {
     /// # Returns
     ///
     /// Result indicating success or failure
-    pub fn remove_symlink_from_tracking(
-        &mut self,
-        profile_name: &str,
-        relative_path: &str,
-    ) -> Result<()> {
+    pub fn remove_symlink_from_tracking(&mut self, profile_name: &str, relative_path: &str) -> Result<()> {
         let profile_path = self.repo_path.join(profile_name);
         let source_path = profile_path.join(relative_path);
 
@@ -1404,12 +1307,7 @@ impl SymlinkManager {
         info!("Removing common symlink: {}", relative_path);
 
         // Find the tracked symlink
-        let symlink = self
-            .tracking
-            .symlinks
-            .iter()
-            .find(|s| s.source == source_path)
-            .cloned();
+        let symlink = self.tracking.symlinks.iter().find(|s| s.source == source_path).cloned();
 
         let operation = if let Some(tracked) = symlink {
             self.remove_symlink_with_restore(&tracked)?
@@ -1419,8 +1317,7 @@ impl SymlinkManager {
             let target = home_dir.join(relative_path);
 
             if target.symlink_metadata().is_ok() {
-                fs::remove_file(&target)
-                    .with_context(|| format!("Failed to remove symlink: {target:?}"))?;
+                fs::remove_file(&target).with_context(|| format!("Failed to remove symlink: {target:?}"))?;
             }
 
             SymlinkOperation {
@@ -1448,10 +1345,7 @@ impl SymlinkManager {
         let common_path = self.repo_path.join("common");
         let source_path = common_path.join(relative_path);
 
-        debug!(
-            "Removing common symlink from tracking: path={}",
-            relative_path
-        );
+        debug!("Removing common symlink from tracking: path={}", relative_path);
 
         let initial_count = self.tracking.symlinks.len();
         self.tracking.symlinks.retain(|s| s.source != source_path);
@@ -1479,10 +1373,7 @@ impl SymlinkManager {
     /// # Returns
     ///
     /// A tuple of (`created_count`, `skipped_count`, errors)
-    pub fn ensure_common_symlinks(
-        &mut self,
-        files: &[String],
-    ) -> Result<(usize, usize, Vec<String>)> {
+    pub fn ensure_common_symlinks(&mut self, files: &[String]) -> Result<(usize, usize, Vec<String>)> {
         info!("Ensuring common symlinks ({} files)", files.len());
 
         let common_path = self.repo_path.join("common");
@@ -1530,10 +1421,7 @@ impl SymlinkManager {
                             let source_normalized = source.canonicalize().unwrap_or(source.clone());
 
                             if existing_normalized == source_normalized {
-                                debug!(
-                                    "Common symlink already exists and is correct, skipping: {:?}",
-                                    target
-                                );
+                                debug!("Common symlink already exists and is correct, skipping: {:?}", target);
                                 skipped_count += 1;
                                 continue;
                             }
@@ -1559,9 +1447,7 @@ impl SymlinkManager {
                     }
                 }
                 Err(e) => {
-                    errors.push(format!(
-                        "Failed to create common symlink for {relative_path}: {e}"
-                    ));
+                    errors.push(format!("Failed to create common symlink for {relative_path}: {e}"));
                 }
             }
         }
@@ -1616,16 +1502,9 @@ impl SymlinkManager {
             let operation = self.create_symlink(&source, &target, file)?;
 
             // Track both Success AND Skipped (Skipped = symlink already correct, still ours)
-            if matches!(
-                operation.status,
-                OperationStatus::Success | OperationStatus::Skipped(_)
-            ) {
+            if matches!(operation.status, OperationStatus::Success | OperationStatus::Skipped(_)) {
                 // Check if already tracked (avoid duplicates)
-                let already_tracked = self
-                    .tracking
-                    .symlinks
-                    .iter()
-                    .any(|s| s.target == operation.target);
+                let already_tracked = self.tracking.symlinks.iter().any(|s| s.target == operation.target);
                 if !already_tracked {
                     self.tracking.symlinks.push(TrackedSymlink {
                         target: operation.target.clone(),
@@ -1700,10 +1579,7 @@ mod tests {
         fs::create_dir_all(&profile_path).unwrap();
 
         let test_file = profile_path.join(".testrc");
-        File::create(&test_file)
-            .unwrap()
-            .write_all(b"test content")
-            .unwrap();
+        File::create(&test_file).unwrap().write_all(b"test content").unwrap();
 
         // Track the symlink target for cleanup
         let symlink_target = temp_dir.path().join(".testrc");
@@ -1713,8 +1589,7 @@ mod tests {
             relative_path: ".testrc".to_string(),
             source_profile: "test-profile".to_string(),
         }];
-        let result =
-            manager.activate_resolved_with_home("test-profile", &resolved, temp_dir.path());
+        let result = manager.activate_resolved_with_home("test-profile", &resolved, temp_dir.path());
         assert!(result.is_ok(), "activate_profile error: {:?}", result.err());
 
         let operations = result.unwrap();

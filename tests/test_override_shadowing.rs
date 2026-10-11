@@ -17,10 +17,7 @@ fn test_override_shadows_preset_binding() {
 
     // 'k' should NOT map to MoveUp anymore (preset binding is shadowed)
     // Instead, it should return None since move_up is overridden
-    assert_eq!(
-        keymap.get_action(KeyCode::Char('k'), KeyModifiers::NONE),
-        None
-    );
+    assert_eq!(keymap.get_action(KeyCode::Char('k'), KeyModifiers::NONE), None);
 
     // 'j' should still work for MoveDown (not overridden)
     assert_eq!(
@@ -33,10 +30,7 @@ fn test_override_shadows_preset_binding() {
 fn test_display_reflects_overrides() {
     let keymap = Keymap {
         preset: KeymapPreset::Vim,
-        overrides: vec![
-            KeyBinding::new("w", Action::MoveUp),
-            KeyBinding::new("x", Action::Quit),
-        ],
+        overrides: vec![KeyBinding::new("w", Action::MoveUp), KeyBinding::new("x", Action::Quit)],
     };
 
     // Navigation display should show W/j (w overrides k, display is uppercase)

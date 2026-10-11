@@ -24,10 +24,7 @@ impl PackageInstaller {
     pub fn install(package: &Package, tx: mpsc::Sender<InstallationStatus>) {
         match Self::start_install(package) {
             Ok(handle) => {
-                let InstallationHandle {
-                    mut child,
-                    output_rx,
-                } = handle;
+                let InstallationHandle { mut child, output_rx } = handle;
                 // Stream output
                 for line in output_rx {
                     let _ = tx.send(InstallationStatus::Output(line));
@@ -73,10 +70,7 @@ impl PackageInstaller {
         }
 
         // For custom packages, check if the command contains sudo
-        if matches!(
-            package.manager,
-            crate::utils::profile_manifest::PackageManager::Custom
-        ) {
+        if matches!(package.manager, crate::utils::profile_manifest::PackageManager::Custom) {
             if let Some(cmd_str) = &package.install_command {
                 if cmd_str.contains("sudo") {
                     // Check if sudo password is required
@@ -138,10 +132,7 @@ impl PackageInstaller {
             }
         });
 
-        Ok(InstallationHandle {
-            child,
-            output_rx: rx,
-        })
+        Ok(InstallationHandle { child, output_rx: rx })
     }
 
     /// Check if installation process is complete
@@ -179,10 +170,7 @@ impl PackageInstaller {
         // canonical check and short-circuit the binary/manager fallbacks.
         if let Some(existence_check) = package.existence_check.as_ref().map(|s| s.trim()) {
             if !existence_check.is_empty() {
-                debug!(
-                    "Running user-provided existence_check for package {}",
-                    package.name
-                );
+                debug!("Running user-provided existence_check for package {}", package.name);
                 let output = std::process::Command::new("sh")
                     .arg("-c")
                     .arg(existence_check)
@@ -192,11 +180,7 @@ impl PackageInstaller {
                 let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                 let combined_output = format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
                 debug!("existence_check for {}: {}", package.name, found);
-                return Ok((
-                    found,
-                    Some(existence_check.to_string()),
-                    Some(combined_output),
-                ));
+                return Ok((found, Some(existence_check.to_string()), Some(combined_output)));
             }
         }
 
@@ -209,26 +193,17 @@ impl PackageInstaller {
         let binary_check_cmd = format!("which {}", package.binary_name);
         if PackageManagerImpl::check_binary_in_path(&package.binary_name) {
             debug!("Package {} found via binary check", package.name);
-            return Ok((
-                true,
-                Some(binary_check_cmd),
-                Some("Binary found in PATH".to_string()),
-            ));
+            return Ok((true, Some(binary_check_cmd), Some("Binary found in PATH".to_string())));
         }
         debug!("Binary '{}' not found in PATH", package.binary_name);
-        check_attempts.push(format!(
-            "Binary check: `{binary_check_cmd}` - not found in PATH"
-        ));
+        check_attempts.push(format!("Binary check: `{binary_check_cmd}` - not found in PATH"));
 
         // Binary check failed, try manager-native check if available
         // This requires the manager to be installed
         if let Some(manager_check) = &package.manager_check {
             debug!("Trying custom manager check for package {}", package.name);
             // Use custom manager check command (via shell, user-provided)
-            let output = std::process::Command::new("sh")
-                .arg("-c")
-                .arg(manager_check)
-                .output()?;
+            let output = std::process::Command::new("sh").arg("-c").arg(manager_check).output()?;
             let found = output.status.success();
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();
             let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -259,17 +234,11 @@ impl PackageInstaller {
                     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
                     let combined_output = format!("STDOUT:\n{stdout}\nSTDERR:\n{stderr}");
 
-                    debug!(
-                        "Auto-generated manager check for {}: {}",
-                        package.name, found
-                    );
+                    debug!("Auto-generated manager check for {}: {}", package.name, found);
                     return Ok((found, Some(cmd_str), Some(combined_output)));
                 }
             } else {
-                check_attempts.push(format!(
-                    "Manager check: {:?} not installed, skipped",
-                    package.manager
-                ));
+                check_attempts.push(format!("Manager check: {:?} not installed, skipped", package.manager));
                 debug!(
                     "Manager {:?} not installed, skipping manager check for {}",
                     package.manager, package.name
@@ -320,10 +289,7 @@ mod tests {
         // Issue #51: binary `sh` exists in PATH, but existence_check fails → not installed
         let pkg = custom_pkg("fake-pkg", "sh", Some("false"));
         let (found, cmd, _) = PackageInstaller::check_exists(&pkg).unwrap();
-        assert!(
-            !found,
-            "existence_check `false` should report not installed"
-        );
+        assert!(!found, "existence_check `false` should report not installed");
         assert_eq!(cmd.as_deref(), Some("false"));
     }
 
@@ -343,9 +309,6 @@ mod tests {
     fn none_existence_check_falls_through_to_binary() {
         let pkg = custom_pkg("missing-pkg", "nonexistent-binary-xyz-9001", None);
         let (found, _, _) = PackageInstaller::check_exists(&pkg).unwrap();
-        assert!(
-            !found,
-            "no existence_check, no binary, no manager → not installed"
-        );
+        assert!(!found, "no existence_check, no binary, no manager → not installed");
     }
 }

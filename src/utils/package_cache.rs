@@ -69,10 +69,7 @@ impl Default for PackageCache {
         match Self::new() {
             Ok(cache) => cache,
             Err(e) => {
-                warn!(
-                    "Failed to initialize package cache with default path: {}",
-                    e
-                );
+                warn!("Failed to initialize package cache with default path: {}", e);
                 // Fallback to a dummy path that probably won't write successfully but allows the app to validly construct the struct.
                 // Or better: use a sensible default path even if we couldn't create it right now.
                 let config_dir = crate::utils::get_config_dir();
@@ -118,8 +115,7 @@ impl PackageCache {
             data = PackageCacheData::migrate(data)?;
 
             // Backup, save, cleanup
-            let cache_json =
-                serde_json::to_string_pretty(&data).context("Failed to serialize package cache")?;
+            let cache_json = serde_json::to_string_pretty(&data).context("Failed to serialize package cache")?;
             super::migrate_file(&cache_file, old_version, "json", || {
                 std::fs::write(&cache_file, &cache_json).context("Failed to write package cache")
             })?;
@@ -134,9 +130,7 @@ impl PackageCache {
 
     #[must_use]
     pub fn get_status(&self, profile_name: &str, package_name: &str) -> Option<&PackageCacheEntry> {
-        self.data
-            .entries
-            .get(&Self::get_key(profile_name, package_name))
+        self.data.entries.get(&Self::get_key(profile_name, package_name))
     }
 
     pub fn update_status(
@@ -178,15 +172,13 @@ impl PackageCache {
             std::fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        let json = serde_json::to_string_pretty(&self.data)
-            .context("Failed to serialize package cache")?;
+        let json = serde_json::to_string_pretty(&self.data).context("Failed to serialize package cache")?;
 
         // Write to temp file first
         std::fs::write(&temp_path, &json).context("Failed to write temp package cache")?;
 
         // Atomic rename (on POSIX systems)
-        std::fs::rename(&temp_path, &self.cache_file)
-            .context("Failed to rename temp package cache")?;
+        std::fs::rename(&temp_path, &self.cache_file).context("Failed to rename temp package cache")?;
 
         debug!("Package cache saved to {:?}", self.cache_file);
         Ok(())

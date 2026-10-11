@@ -102,14 +102,9 @@ impl PackageService {
             Ok((true, check_cmd, _out)) => {
                 // Heuristic: if command is "which ...", used_fallback is false.
                 // Otherwise (manager check or custom check), it is true.
-                let used_fallback = check_cmd
-                    .as_ref()
-                    .is_some_and(|cmd| !cmd.starts_with("which "));
+                let used_fallback = check_cmd.as_ref().is_some_and(|cmd| !cmd.starts_with("which "));
 
-                debug!(
-                    "Package {} found (used_fallback: {})",
-                    package.name, used_fallback
-                );
+                debug!("Package {} found (used_fallback: {})", package.name, used_fallback);
                 PackageCheckResult {
                     status: PackageCheckStatus::Installed,
                     used_fallback,
@@ -203,9 +198,7 @@ impl PackageService {
                 warn!("Package validation failed: install_command is empty for custom package");
                 return PackageValidation {
                     is_valid: false,
-                    error_message: Some(
-                        "Install command is required for custom packages".to_string(),
-                    ),
+                    error_message: Some("Install command is required for custom packages".to_string()),
                 };
             }
         } else {
@@ -214,9 +207,7 @@ impl PackageService {
                 warn!("Package validation failed: package_name is empty for managed package");
                 return PackageValidation {
                     is_valid: false,
-                    error_message: Some(
-                        "Package name is required for managed packages".to_string(),
-                    ),
+                    error_message: Some("Package name is required for managed packages".to_string()),
                 };
             }
         }
@@ -283,23 +274,12 @@ impl PackageService {
     /// # Returns
     ///
     /// The updated list of packages.
-    pub fn add_package(
-        repo_path: &Path,
-        profile_name: &str,
-        package: Package,
-    ) -> Result<Vec<Package>> {
-        info!(
-            "Adding new package: {} (profile: {})",
-            package.name, profile_name
-        );
+    pub fn add_package(repo_path: &Path, profile_name: &str, package: Package) -> Result<Vec<Package>> {
+        info!("Adding new package: {} (profile: {})", package.name, profile_name);
 
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
 
-        if let Some(profile) = manifest
-            .profiles
-            .iter_mut()
-            .find(|p| p.name == profile_name)
-        {
+        if let Some(profile) = manifest.profiles.iter_mut().find(|p| p.name == profile_name) {
             profile.packages.push(package);
             let packages = profile.packages.clone();
             manifest.save(repo_path)?;
@@ -329,11 +309,7 @@ impl PackageService {
     ) -> Result<Vec<Package>> {
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
 
-        if let Some(profile) = manifest
-            .profiles
-            .iter_mut()
-            .find(|p| p.name == profile_name)
-        {
+        if let Some(profile) = manifest.profiles.iter_mut().find(|p| p.name == profile_name) {
             if index < profile.packages.len() {
                 let old_name = profile.packages[index].name.clone();
                 info!(
@@ -367,18 +343,10 @@ impl PackageService {
     /// # Returns
     ///
     /// The updated list of packages.
-    pub fn delete_package(
-        repo_path: &Path,
-        profile_name: &str,
-        index: usize,
-    ) -> Result<Vec<Package>> {
+    pub fn delete_package(repo_path: &Path, profile_name: &str, index: usize) -> Result<Vec<Package>> {
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
 
-        if let Some(profile) = manifest
-            .profiles
-            .iter_mut()
-            .find(|p| p.name == profile_name)
-        {
+        if let Some(profile) = manifest.profiles.iter_mut().find(|p| p.name == profile_name) {
             if index < profile.packages.len() {
                 let package_name = profile.packages[index].name.clone();
                 info!(
@@ -448,9 +416,7 @@ impl PackageService {
     /// # Returns
     ///
     /// Result with installation handle.
-    pub fn start_install(
-        package: &Package,
-    ) -> Result<crate::utils::package_installer::InstallationHandle> {
+    pub fn start_install(package: &Package) -> Result<crate::utils::package_installer::InstallationHandle> {
         PackageInstaller::start_install(package)
     }
 }
@@ -462,70 +428,35 @@ mod tests {
 
     #[test]
     fn test_validate_package_empty_name() {
-        let result = PackageService::validate_package(
-            "",
-            "binary",
-            false,
-            "package",
-            "",
-            Some(&PackageManager::Brew),
-        );
+        let result = PackageService::validate_package("", "binary", false, "package", "", Some(&PackageManager::Brew));
         assert!(!result.is_valid);
         assert!(result.error_message.unwrap().contains("Name"));
     }
 
     #[test]
     fn test_validate_package_empty_binary() {
-        let result = PackageService::validate_package(
-            "name",
-            "",
-            false,
-            "package",
-            "",
-            Some(&PackageManager::Brew),
-        );
+        let result = PackageService::validate_package("name", "", false, "package", "", Some(&PackageManager::Brew));
         assert!(!result.is_valid);
         assert!(result.error_message.unwrap().contains("Binary"));
     }
 
     #[test]
     fn test_validate_custom_package_no_install_command() {
-        let result = PackageService::validate_package(
-            "name",
-            "binary",
-            true,
-            "",
-            "",
-            Some(&PackageManager::Custom),
-        );
+        let result = PackageService::validate_package("name", "binary", true, "", "", Some(&PackageManager::Custom));
         assert!(!result.is_valid);
         assert!(result.error_message.unwrap().contains("Install command"));
     }
 
     #[test]
     fn test_validate_managed_package_no_package_name() {
-        let result = PackageService::validate_package(
-            "name",
-            "binary",
-            false,
-            "",
-            "",
-            Some(&PackageManager::Brew),
-        );
+        let result = PackageService::validate_package("name", "binary", false, "", "", Some(&PackageManager::Brew));
         assert!(!result.is_valid);
         assert!(result.error_message.unwrap().contains("Package name"));
     }
 
     #[test]
     fn test_validate_valid_managed_package() {
-        let result = PackageService::validate_package(
-            "Git",
-            "git",
-            false,
-            "git",
-            "",
-            Some(&PackageManager::Brew),
-        );
+        let result = PackageService::validate_package("Git", "git", false, "git", "", Some(&PackageManager::Brew));
         assert!(result.is_valid);
         assert!(result.error_message.is_none());
     }

@@ -158,9 +158,7 @@ impl DotstateLogo {
 impl Widget for DotstateLogo {
     fn render(self, area: Rect, buf: &mut Buffer) {
         let logo = self.size.as_str();
-        Text::raw(logo)
-            .style(theme().text_style())
-            .render(area, buf);
+        Text::raw(logo).style(theme().text_style()).render(area, buf);
     }
 }
 
@@ -264,11 +262,7 @@ mod tests {
             let lines: Vec<&str> = content.lines().collect();
 
             // Check height
-            assert_eq!(
-                lines.len() as u16,
-                size.height(),
-                "{size:?} height mismatch"
-            );
+            assert_eq!(lines.len() as u16, size.height(), "{size:?} height mismatch");
 
             // Check width (max line width in chars - all logo chars are 1 cell wide)
             let max_width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as u16;

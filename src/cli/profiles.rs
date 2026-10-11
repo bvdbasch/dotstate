@@ -87,8 +87,7 @@ fn profile_list_lines() -> Result<Vec<String>> {
 /// Switch to a different profile and activate it.
 pub fn cmd_switch(name: String) -> Result<()> {
     let config_path = crate::utils::get_config_path();
-    let mut config =
-        Config::load_or_create(&config_path).context("Failed to load configuration")?;
+    let mut config = Config::load_or_create(&config_path).context("Failed to load configuration")?;
     let icons = Icons::from_config(&config);
 
     if !config.is_repo_configured() {
@@ -113,18 +112,12 @@ pub fn cmd_switch(name: String) -> Result<()> {
     }
 
     if config.profile_activated {
-        let result = ProfileService::switch_profile(
-            &config.repo_path,
-            &config.active_profile,
-            &name,
-            config.backup_enabled,
-        )?;
+        let result =
+            ProfileService::switch_profile(&config.repo_path, &config.active_profile, &name, config.backup_enabled)?;
 
         config.active_profile = name.clone();
         config.profile_activated = true;
-        config
-            .save(&config_path)
-            .context("Failed to save configuration")?;
+        config.save(&config_path).context("Failed to save configuration")?;
 
         println!("{} Switched to profile '{name}'", icons.success());
         println!(
@@ -146,18 +139,12 @@ pub fn cmd_switch(name: String) -> Result<()> {
         std::process::exit(1);
     }
 
-    let mut symlink_mgr =
-        SymlinkManager::new_with_backup(config.repo_path.clone(), config.backup_enabled)?;
+    let mut symlink_mgr = SymlinkManager::new_with_backup(config.repo_path.clone(), config.backup_enabled)?;
     let operations = symlink_mgr.activate_resolved(&name, &resolved_files)?;
 
     let success_count = operations
         .iter()
-        .filter(|op| {
-            matches!(
-                op.status,
-                OperationStatus::Success | OperationStatus::Skipped(_)
-            )
-        })
+        .filter(|op| matches!(op.status, OperationStatus::Success | OperationStatus::Skipped(_)))
         .count();
     let failed_count = operations.len() - success_count;
 
@@ -176,9 +163,7 @@ pub fn cmd_switch(name: String) -> Result<()> {
 
     config.active_profile = name.clone();
     config.profile_activated = true;
-    config
-        .save(&config_path)
-        .context("Failed to save configuration")?;
+    config.save(&config_path).context("Failed to save configuration")?;
 
     println!("{} Switched to profile '{name}'", icons.success());
     println!("   Activated {success_count} symlinks");
@@ -189,8 +174,7 @@ pub fn cmd_switch(name: String) -> Result<()> {
 /// Execute the activate command.
 pub fn cmd_activate() -> Result<()> {
     let config_path = crate::utils::get_config_path();
-    let mut config =
-        Config::load_or_create(&config_path).context("Failed to load configuration")?;
+    let mut config = Config::load_or_create(&config_path).context("Failed to load configuration")?;
 
     if !config.is_repo_configured() {
         let icons = Icons::from_config(&config);
@@ -229,10 +213,7 @@ pub fn cmd_activate() -> Result<()> {
             "{} Active profile '{active_profile_name}' has no synced files (including inherited/common).",
             icons.error()
         );
-        eprintln!(
-            "{} Run 'dotstate' to select and sync files.",
-            icons.lightbulb()
-        );
+        eprintln!("{} Run 'dotstate' to select and sync files.", icons.lightbulb());
         std::process::exit(1);
     }
 
@@ -243,18 +224,11 @@ pub fn cmd_activate() -> Result<()> {
         }
     }
 
-    println!(
-        "{} Activating profile '{active_profile_name}'...",
-        icons.sync()
-    );
-    println!(
-        "   This will create symlinks for {} files",
-        resolved_files.len()
-    );
+    println!("{} Activating profile '{active_profile_name}'...", icons.sync());
+    println!("   This will create symlinks for {} files", resolved_files.len());
 
     // Create SymlinkManager and activate with resolved files
-    let mut symlink_mgr =
-        SymlinkManager::new_with_backup(config.repo_path.clone(), config.backup_enabled)?;
+    let mut symlink_mgr = SymlinkManager::new_with_backup(config.repo_path.clone(), config.backup_enabled)?;
 
     let operations = symlink_mgr.activate_resolved(&active_profile_name, &resolved_files)?;
 
@@ -262,12 +236,7 @@ pub fn cmd_activate() -> Result<()> {
     // Count Success and Skipped as successful (Skipped = symlink already correct)
     let success_count = operations
         .iter()
-        .filter(|op| {
-            matches!(
-                op.status,
-                OperationStatus::Success | OperationStatus::Skipped(_)
-            )
-        })
+        .filter(|op| matches!(op.status, OperationStatus::Success | OperationStatus::Skipped(_)))
         .count();
     let failed_count = operations.len() - success_count;
 
@@ -285,9 +254,7 @@ pub fn cmd_activate() -> Result<()> {
     } else {
         // Mark as activated in config
         config.profile_activated = true;
-        config
-            .save(&config_path)
-            .context("Failed to save configuration")?;
+        config.save(&config_path).context("Failed to save configuration")?;
 
         println!(
             "{} Successfully activated profile '{active_profile_name}'",
@@ -302,8 +269,7 @@ pub fn cmd_activate() -> Result<()> {
 /// Execute the deactivate command.
 pub fn cmd_deactivate() -> Result<()> {
     let config_path = crate::utils::get_config_path();
-    let mut config =
-        Config::load_or_create(&config_path).context("Failed to load configuration")?;
+    let mut config = Config::load_or_create(&config_path).context("Failed to load configuration")?;
 
     if !config.is_repo_configured() {
         let icons = Icons::from_config(&config);
@@ -320,8 +286,7 @@ pub fn cmd_deactivate() -> Result<()> {
     println!("   This will restore all files from the repository");
 
     // Create SymlinkManager
-    let mut symlink_mgr =
-        SymlinkManager::new_with_backup(config.repo_path.clone(), config.backup_enabled)?;
+    let mut symlink_mgr = SymlinkManager::new_with_backup(config.repo_path.clone(), config.backup_enabled)?;
 
     // Deactivate all symlinks (profile + common), always restore files
     let operations = symlink_mgr.deactivate_profile_with_restore(&config.active_profile, true)?;
@@ -330,20 +295,12 @@ pub fn cmd_deactivate() -> Result<()> {
     // Count Success and Skipped as successful (Skipped = symlink already gone or not our symlink)
     let success_count = operations
         .iter()
-        .filter(|op| {
-            matches!(
-                op.status,
-                OperationStatus::Success | OperationStatus::Skipped(_)
-            )
-        })
+        .filter(|op| matches!(op.status, OperationStatus::Success | OperationStatus::Skipped(_)))
         .count();
     let failed_count = operations.len() - success_count;
 
     if operations.is_empty() {
-        println!(
-            "{} No symlinks were tracked. Nothing to deactivate.",
-            icons.info()
-        );
+        println!("{} No symlinks were tracked. Nothing to deactivate.", icons.info());
     } else if failed_count > 0 {
         eprintln!(
             "{} Deactivated {success_count} files, {failed_count} failed",
@@ -358,9 +315,7 @@ pub fn cmd_deactivate() -> Result<()> {
     } else {
         // Mark as deactivated in config
         config.profile_activated = false;
-        config
-            .save(&config_path)
-            .context("Failed to save configuration")?;
+        config.save(&config_path).context("Failed to save configuration")?;
 
         println!("{} Successfully deactivated dotstate", icons.success());
         println!("   {success_count} files restored");
@@ -459,11 +414,7 @@ mod tests {
         })
     }
 
-    fn write_config(
-        repo: &Path,
-        active_profile: &str,
-        profile_activated: bool,
-    ) -> anyhow::Result<()> {
+    fn write_config(repo: &Path, active_profile: &str, profile_activated: bool) -> anyhow::Result<()> {
         let config_path = crate::utils::get_config_path();
         let config = Config {
             repo_mode: RepoMode::Local,
@@ -501,10 +452,7 @@ mod tests {
         };
         fs::create_dir_all(repo.join("default"))?;
         fs::create_dir_all(repo.join("work"))?;
-        fs::write(
-            repo.join("default").join(".default-file"),
-            "default content",
-        )?;
+        fs::write(repo.join("default").join(".default-file"), "default content")?;
         fs::write(repo.join("work").join(".work-file"), "work content")?;
         manifest.save(repo)
     }
@@ -569,10 +517,7 @@ mod tests {
 
         let target = paths.home.join(".work-file");
         assert!(target.is_symlink());
-        assert_eq!(
-            fs::read_link(target)?,
-            paths.repo.join("work").join(".work-file")
-        );
+        assert_eq!(fs::read_link(target)?, paths.repo.join("work").join(".work-file"));
         Ok(())
     }
 
@@ -586,8 +531,7 @@ mod tests {
 
         let manifest = ProfileManifest::load_or_backfill(&paths.repo)?;
         let default_files = manifest.resolve_files("default")?;
-        let mut symlink_mgr =
-            crate::utils::SymlinkManager::new_with_backup(paths.repo.clone(), false)?;
+        let mut symlink_mgr = crate::utils::SymlinkManager::new_with_backup(paths.repo.clone(), false)?;
         symlink_mgr.activate_resolved("default", &default_files)?;
 
         cmd_switch("work".to_string())?;
@@ -599,10 +543,7 @@ mod tests {
         assert!(!paths.home.join(".default-file").exists());
         let target = paths.home.join(".work-file");
         assert!(target.is_symlink());
-        assert_eq!(
-            fs::read_link(target)?,
-            paths.repo.join("work").join(".work-file")
-        );
+        assert_eq!(fs::read_link(target)?, paths.repo.join("work").join(".work-file"));
         Ok(())
     }
 }

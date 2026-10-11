@@ -13,17 +13,14 @@ use crate::screens::screen_trait::{RenderContext, Screen, ScreenAction, ScreenCo
 use crate::styles::{init_theme, theme, ThemeType};
 use crate::ui::Screen as ScreenId;
 use crate::utils::{
-    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style,
-    MouseRegions,
+    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions,
 };
 use anyhow::Result;
 use crossterm::event::{Event, KeyEventKind, MouseButton, MouseEventKind};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{
-    Block, Borders, List, ListItem, ListState, Padding, Paragraph, StatefulWidget, Wrap,
-};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Padding, Paragraph, StatefulWidget, Wrap};
 use ratatui::Frame;
 
 /// Available settings
@@ -223,10 +220,7 @@ impl SettingsScreen {
                     Line::from(""),
                     Line::from(Span::styled("Preview:", t.muted_style())),
                     Line::from(vec![
-                        Span::styled(
-                            format!("  {} Folder  ", icons_preview.folder()),
-                            t.text_style(),
-                        ),
+                        Span::styled(format!("  {} Folder  ", icons_preview.folder()), t.text_style()),
                         Span::styled(format!("{} File  ", icons_preview.file()), t.text_style()),
                         Span::styled(format!("{} Sync", icons_preview.sync()), t.text_style()),
                     ]),
@@ -234,10 +228,7 @@ impl SettingsScreen {
                     Line::from(vec![
                         Span::styled(icons.lightbulb(), Style::default().fg(t.secondary)),
                         Span::styled(" Tip: ", Style::default().fg(t.secondary)),
-                        Span::styled(
-                            "Use 'nerd' if you have a NerdFont installed",
-                            t.text_style(),
-                        ),
+                        Span::styled("Use 'nerd' if you have a NerdFont installed", t.text_style()),
                     ]),
                 ];
                 Text::from(lines)
@@ -334,18 +325,12 @@ impl SettingsScreen {
                     Line::from(vec![
                         Span::styled("  • ", t.muted_style()),
                         Span::styled("Enabled", t.emphasis_style()),
-                        Span::styled(
-                            ": Token is stored in the remote URL",
-                            t.text_style(),
-                        ),
+                        Span::styled(": Token is stored in the remote URL", t.text_style()),
                     ]),
                     Line::from(vec![
                         Span::styled("  • ", t.muted_style()),
                         Span::styled("Disabled", t.emphasis_style()),
-                        Span::styled(
-                            ": Uses your system's git credential manager",
-                            t.text_style(),
-                        ),
+                        Span::styled(": Uses your system's git credential manager", t.text_style()),
                     ]),
                     Line::from(""),
                     Line::from(vec![
@@ -360,7 +345,11 @@ impl SettingsScreen {
                         Span::styled(icons.lightbulb(), Style::default().fg(t.secondary)),
                         Span::styled(" Current: ", t.muted_style()),
                         Span::styled(
-                            if config.embed_credentials_in_url { "Enabled" } else { "Disabled" },
+                            if config.embed_credentials_in_url {
+                                "Enabled"
+                            } else {
+                                "Disabled"
+                            },
                             t.emphasis_style(),
                         ),
                     ]),
@@ -372,12 +361,7 @@ impl SettingsScreen {
     }
 
     /// Apply a setting change by setting name (public, for use by App)
-    pub fn apply_setting_to_config(
-        &self,
-        config: &mut Config,
-        setting_name: &str,
-        option_index: usize,
-    ) -> bool {
+    pub fn apply_setting_to_config(&self, config: &mut Config, setting_name: &str, option_index: usize) -> bool {
         Self::apply_setting_by_name(config, setting_name, option_index)
     }
 
@@ -402,11 +386,7 @@ impl SettingsScreen {
                 }
             }
             "Keymap Preset" => {
-                let presets = [
-                    KeymapPreset::Standard,
-                    KeymapPreset::Vim,
-                    KeymapPreset::Emacs,
-                ];
+                let presets = [KeymapPreset::Standard, KeymapPreset::Vim, KeymapPreset::Emacs];
                 if option_index < presets.len() {
                     config.keymap.preset = presets[option_index];
                     // Clear overrides when changing preset to ensure clean bindings
@@ -434,10 +414,7 @@ impl SettingsScreen {
     /// Find the current option index for the selected setting
     fn current_option_index(&self, config: &Config) -> usize {
         let options = self.get_options(config);
-        options
-            .iter()
-            .position(|(_, selected)| *selected)
-            .unwrap_or(0)
+        options.iter().position(|(_, selected)| *selected).unwrap_or(0)
     }
 
     fn render_settings_list(&mut self, frame: &mut Frame, area: Rect, config: &Config) {
@@ -490,10 +467,7 @@ impl SettingsScreen {
                 };
 
                 let line = Line::from(vec![
-                    Span::styled(
-                        format!("{} ", icons.cog()),
-                        Style::default().fg(t.secondary),
-                    ),
+                    Span::styled(format!("{} ", icons.cog()), Style::default().fg(t.secondary)),
                     Span::styled(item.name(), t.text_style()),
                     Span::styled(format!(" ({current_value})"), t.muted_style()),
                 ]);
@@ -545,12 +519,7 @@ impl SettingsScreen {
         let options_inner = Block::default().borders(Borders::ALL).inner(chunks[0]);
         for i in 0..options.len() {
             if (i as u16) < options_inner.height {
-                let row = Rect::new(
-                    options_inner.x,
-                    options_inner.y + i as u16,
-                    options_inner.width,
-                    1,
-                );
+                let row = Rect::new(options_inner.x, options_inner.y + i as u16, options_inner.width, 1);
                 self.option_regions.add(row, i);
             }
         }
@@ -682,10 +651,7 @@ impl Screen for SettingsScreen {
                                 Action::MoveUp if self.state.option_index > 0 => {
                                     self.state.option_index -= 1;
                                 }
-                                Action::MoveDown
-                                    if self.state.option_index
-                                        < options.len().saturating_sub(1) =>
-                                {
+                                Action::MoveDown if self.state.option_index < options.len().saturating_sub(1) => {
                                     self.state.option_index += 1;
                                 }
                                 Action::Confirm => {
@@ -732,11 +698,7 @@ impl Screen for SettingsScreen {
 }
 
 impl SettingsScreen {
-    fn handle_mouse_event(
-        &mut self,
-        mouse: crossterm::event::MouseEvent,
-        ctx: &ScreenContext,
-    ) -> Result<ScreenAction> {
+    fn handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, ctx: &ScreenContext) -> Result<ScreenAction> {
         match mouse.kind {
             MouseEventKind::Down(MouseButton::Left) => {
                 // Check settings list click

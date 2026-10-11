@@ -35,8 +35,7 @@ impl CliContext {
     pub fn load() -> Result<Self> {
         let config_path = crate::utils::get_config_path();
 
-        let config =
-            Config::load_or_create(&config_path).context("Failed to load configuration")?;
+        let config = Config::load_or_create(&config_path).context("Failed to load configuration")?;
 
         // Check if repository is configured
         if !config.is_repo_configured() {
@@ -44,8 +43,8 @@ impl CliContext {
             std::process::exit(1);
         }
 
-        let manifest = ProfileManifest::load_or_backfill(&config.repo_path)
-            .context("Failed to load profile manifest")?;
+        let manifest =
+            ProfileManifest::load_or_backfill(&config.repo_path).context("Failed to load profile manifest")?;
 
         Ok(Self {
             config,
@@ -63,10 +62,7 @@ impl CliContext {
     /// The resolved profile name
     #[must_use]
     pub fn resolve_profile(&self, profile: Option<&str>) -> String {
-        profile.map_or_else(
-            || self.config.active_profile.clone(),
-            std::string::ToString::to_string,
-        )
+        profile.map_or_else(|| self.config.active_profile.clone(), std::string::ToString::to_string)
     }
 
     /// Check if the given profile name is the active profile.
@@ -90,10 +86,7 @@ impl CliContext {
     /// `true` if the profile exists
     #[must_use]
     pub fn profile_exists(&self, profile_name: &str) -> bool {
-        self.manifest
-            .profiles
-            .iter()
-            .any(|p| p.name == profile_name)
+        self.manifest.profiles.iter().any(|p| p.name == profile_name)
     }
 
     /// Get a reference to a profile by name.
@@ -105,10 +98,7 @@ impl CliContext {
     /// Reference to the profile info if found
     #[must_use]
     pub fn get_profile(&self, profile_name: &str) -> Option<&crate::utils::ProfileInfo> {
-        self.manifest
-            .profiles
-            .iter()
-            .find(|p| p.name == profile_name)
+        self.manifest.profiles.iter().find(|p| p.name == profile_name)
     }
 
     /// Save the manifest to disk.
@@ -176,9 +166,7 @@ pub fn prompt_string(label: &str, default: Option<&str>) -> Result<String> {
     io::stdout().flush().context("Failed to flush stdout")?;
 
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("Failed to read input")?;
+    io::stdin().read_line(&mut input).context("Failed to read input")?;
 
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -200,9 +188,7 @@ pub fn prompt_string_optional(label: &str) -> Result<Option<String>> {
     io::stdout().flush().context("Failed to flush stdout")?;
 
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("Failed to read input")?;
+    io::stdin().read_line(&mut input).context("Failed to read input")?;
 
     let trimmed = input.trim();
     if trimmed.is_empty() {
@@ -237,9 +223,7 @@ pub fn prompt_select(label: &str, options: &[&str]) -> Result<usize> {
     io::stdout().flush().context("Failed to flush stdout")?;
 
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("Failed to read input")?;
+    io::stdin().read_line(&mut input).context("Failed to read input")?;
 
     let trimmed = input.trim();
     match trimmed.parse::<usize>() {
@@ -283,9 +267,7 @@ pub fn prompt_select_with_suffix(label: &str, options: &[(&str, Option<&str>)]) 
     io::stdout().flush().context("Failed to flush stdout")?;
 
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("Failed to read input")?;
+    io::stdin().read_line(&mut input).context("Failed to read input")?;
 
     let trimmed = input.trim();
     match trimmed.parse::<usize>() {
@@ -312,9 +294,7 @@ pub fn prompt_confirm(message: &str) -> Result<bool> {
     io::stdout().flush().context("Failed to flush stdout")?;
 
     let mut input = String::new();
-    io::stdin()
-        .read_line(&mut input)
-        .context("Failed to read input")?;
+    io::stdin().read_line(&mut input).context("Failed to read input")?;
 
     let trimmed = input.trim().to_lowercase();
     Ok(trimmed == "y" || trimmed == "yes")

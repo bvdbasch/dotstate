@@ -56,12 +56,8 @@ where
 {
     // Create backup
     let backup_path = path.with_extension(format!("{}.backup-v{}", extension, old_version));
-    fs::copy(path, &backup_path).with_context(|| {
-        format!(
-            "Failed to create backup at {} before migration",
-            backup_path.display()
-        )
-    })?;
+    fs::copy(path, &backup_path)
+        .with_context(|| format!("Failed to create backup at {} before migration", backup_path.display()))?;
 
     // Run save function
     save_fn().with_context(|| format!("Failed to save migrated file to {}", path.display()))?;
@@ -111,9 +107,7 @@ mod tests {
         fs::write(&file_path, "version = 0\nname = \"test\"").unwrap();
 
         // Migrate with failure
-        let result = migrate_file(&file_path, 0, "toml", || {
-            anyhow::bail!("Simulated migration failure")
-        });
+        let result = migrate_file(&file_path, 0, "toml", || anyhow::bail!("Simulated migration failure"));
 
         assert!(result.is_err());
 

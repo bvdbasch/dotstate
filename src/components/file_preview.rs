@@ -2,9 +2,7 @@ use crate::utils::{focused_border_style, unfocused_border_style};
 use anyhow::Result;
 use ratatui::prelude::*;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{
-    Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap,
-};
+use ratatui::widgets::{Block, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Wrap};
 use std::path::PathBuf;
 use syntect::easy::HighlightLines;
 use syntect::highlighting::{Style as SyntectStyle, Theme};
@@ -122,10 +120,7 @@ impl FilePreview {
                             .unwrap_or(None)
                             .or_else(|| syntax_set.find_syntax_by_extension("ini"))
                             .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
-                    } else if file_name.ends_with(".vim")
-                        || file_name == ".vimrc"
-                        || file_name.contains("vim")
-                    {
+                    } else if file_name.ends_with(".vim") || file_name == ".vimrc" || file_name.contains("vim") {
                         syntax_set
                             .find_syntax_by_extension("vim")
                             .or_else(|| syntax_set.find_syntax_by_name("VimL"))
@@ -157,19 +152,14 @@ impl FilePreview {
                         preview_lines.push(Line::from(Span::raw(line.to_string())));
                     } else {
                         // Highlight the line
-                        let ranges: Vec<(SyntectStyle, &str)> = highlighter
-                            .highlight_line(line, syntax_set)
-                            .unwrap_or_default();
+                        let ranges: Vec<(SyntectStyle, &str)> =
+                            highlighter.highlight_line(line, syntax_set).unwrap_or_default();
 
                         // Convert to Ratatui spans
                         let spans: Vec<Span> = ranges
                             .into_iter()
                             .map(|(style, text)| {
-                                let fg = Color::Rgb(
-                                    style.foreground.r,
-                                    style.foreground.g,
-                                    style.foreground.b,
-                                );
+                                let fg = Color::Rgb(style.foreground.r, style.foreground.g, style.foreground.b);
                                 Span::styled(text.to_string(), Style::default().fg(fg))
                             })
                             .collect();
@@ -272,15 +262,11 @@ impl FilePreview {
                     total_entries = entries.len();
 
                     // Clamp scroll offset for directory listing
-                    dir_max_scroll =
-                        total_entries.saturating_sub(visible_height.min(total_entries));
+                    dir_max_scroll = total_entries.saturating_sub(visible_height.min(total_entries));
                     *scroll_offset = (*scroll_offset).min(dir_max_scroll);
 
                     if entries.is_empty() {
-                        preview_lines.push(Line::from(Span::styled(
-                            "  (Empty directory)",
-                            theme.muted_style(),
-                        )));
+                        preview_lines.push(Line::from(Span::styled("  (Empty directory)", theme.muted_style())));
                     } else {
                         for entry in entries.iter().skip(*scroll_offset).take(visible_height) {
                             let path = entry.path();
@@ -322,8 +308,7 @@ impl FilePreview {
             frame.render_widget(preview, area);
 
             if total_entries > visible_height {
-                let mut scrollbar_state =
-                    ScrollbarState::new(dir_max_scroll).position(*scroll_offset);
+                let mut scrollbar_state = ScrollbarState::new(dir_max_scroll).position(*scroll_offset);
                 let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(Some("↑"))
                     .end_symbol(Some("↓"))

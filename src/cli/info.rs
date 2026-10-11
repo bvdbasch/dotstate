@@ -62,11 +62,7 @@ pub fn print_all_commands() {
         let about = subcmd
             .get_about()
             .map(std::string::ToString::to_string)
-            .or_else(|| {
-                subcmd
-                    .get_long_about()
-                    .map(std::string::ToString::to_string)
-            })
+            .or_else(|| subcmd.get_long_about().map(std::string::ToString::to_string))
             .unwrap_or_else(|| "No description available".to_string());
 
         // Format the command name with proper spacing

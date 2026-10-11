@@ -93,12 +93,8 @@ fn main() -> Result<()> {
 
     // Determine whether colors should be disabled (NO_COLOR env var, --no-colors flag, or theme=nocolor)
     let env_no_color = std::env::var_os("NO_COLOR").is_some();
-    let config_theme_type = config
-        .theme
-        .parse::<dotstate::styles::ThemeType>()
-        .unwrap_or_default();
-    let no_colors =
-        cli.no_colors || env_no_color || config_theme_type == dotstate::styles::ThemeType::NoColor;
+    let config_theme_type = config.theme.parse::<dotstate::styles::ThemeType>().unwrap_or_default();
+    let no_colors = cli.no_colors || env_no_color || config_theme_type == dotstate::styles::ThemeType::NoColor;
 
     // If any source disables colors, set NO_COLOR so crossterm/ratatui respects it.
     if no_colors {

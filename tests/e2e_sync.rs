@@ -42,10 +42,7 @@ fn e2e_add_file_creates_symlink_and_tracks() -> Result<()> {
 
     // Then: operation succeeded
     assert!(
-        matches!(
-            result,
-            dotstate::services::sync_service::AddFileResult::Success
-        ),
+        matches!(result, dotstate::services::sync_service::AddFileResult::Success),
         "Expected Success, got {:?}",
         result
     );
@@ -56,10 +53,7 @@ fn e2e_add_file_creates_symlink_and_tracks() -> Result<()> {
     env.assert_file_in_profile("default", ".zshrc");
 
     // Verify content is preserved (accessible through symlink)
-    assert_eq!(
-        env.home_file_content(".zshrc"),
-        Some("# my zshrc config".to_string())
-    );
+    assert_eq!(env.home_file_content(".zshrc"), Some("# my zshrc config".to_string()));
 
     // Verify file exists in repo
     let repo_file = env.profile_file_path("default", ".zshrc");
@@ -82,8 +76,7 @@ fn e2e_add_file_with_nested_path() -> Result<()> {
 
     // When: add nested file to sync
     let full_path = env.home_path(".config/app/settings.toml");
-    let result =
-        SyncService::add_file_to_sync(&config, &full_path, ".config/app/settings.toml", false)?;
+    let result = SyncService::add_file_to_sync(&config, &full_path, ".config/app/settings.toml", false)?;
 
     // Then: success with nested structure preserved
     assert!(matches!(
@@ -119,10 +112,7 @@ fn e2e_add_file_already_synced_returns_already_synced() -> Result<()> {
 
     // Then: returns AlreadySynced
     assert!(
-        matches!(
-            result,
-            dotstate::services::sync_service::AddFileResult::AlreadySynced
-        ),
+        matches!(result, dotstate::services::sync_service::AddFileResult::AlreadySynced),
         "Expected AlreadySynced, got {:?}",
         result
     );
@@ -183,10 +173,7 @@ fn e2e_remove_file_restores_and_untracks() -> Result<()> {
 
     // Then: success
     assert!(
-        matches!(
-            result,
-            dotstate::services::sync_service::RemoveFileResult::Success
-        ),
+        matches!(result, dotstate::services::sync_service::RemoveFileResult::Success),
         "Expected Success, got {:?}",
         result
     );
@@ -196,10 +183,7 @@ fn e2e_remove_file_restores_and_untracks() -> Result<()> {
     env.assert_home_regular_file(".zshrc");
 
     // Content preserved
-    assert_eq!(
-        env.home_file_content(".zshrc"),
-        Some("original content".to_string())
-    );
+    assert_eq!(env.home_file_content(".zshrc"), Some("original content".to_string()));
 
     // No longer tracked
     env.assert_file_not_tracked(".zshrc");
@@ -224,10 +208,7 @@ fn e2e_remove_not_synced_file_returns_not_synced() -> Result<()> {
 
     // Then: returns NotSynced
     assert!(
-        matches!(
-            result,
-            dotstate::services::sync_service::RemoveFileResult::NotSynced
-        ),
+        matches!(result, dotstate::services::sync_service::RemoveFileResult::NotSynced),
         "Expected NotSynced, got {:?}",
         result
     );
@@ -301,10 +282,7 @@ fn e2e_add_multiple_files() -> Result<()> {
         let full_path = env.home_path(name);
         let result = SyncService::add_file_to_sync(&config, &full_path, name, false)?;
         assert!(
-            matches!(
-                result,
-                dotstate::services::sync_service::AddFileResult::Success
-            ),
+            matches!(result, dotstate::services::sync_service::AddFileResult::Success),
             "Failed to add {}",
             name
         );

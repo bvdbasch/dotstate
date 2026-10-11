@@ -1,6 +1,7 @@
 use crate::utils::path::expand_path;
 use crate::utils::profile_manifest::{Template, TemplateEngine};
 use anyhow::{anyhow, Result};
+use std::path::Path;
 use std::process::Command;
 
 /// Template engine implementation utilities.
@@ -38,17 +39,17 @@ impl TemplateEngineImpl {
     /// The `Custom` engine uses `sh -c` with the user-supplied `render_command`,
     /// after `{source}`/`{destination}` placeholder substitution.
     ///
-    /// The `source` is resolved relative to `repo_path`; the `destination` has
-    /// `~` expanded to the home directory.
+    /// `source_abs` is the already-resolved absolute path to the source template
+    /// file (derived by the caller from the owning profile, destination, and
+    /// engine extension). The template's `destination` has `~`/home expansion
+    /// applied here.
     ///
     /// # Errors
     /// - If the `Custom` engine is selected but `render_command` is missing/empty.
-    pub fn build_render_command(template: &Template, repo_path: &std::path::Path) -> Result<Command> {
-        // Resolve source relative to the repo root.
-        let source_path = repo_path.join(&template.source);
-        let source = source_path.to_string_lossy().to_string();
+    pub fn build_render_command(template: &Template, source_abs: &Path) -> Result<Command> {
+        let source = source_abs.to_string_lossy().to_string();
 
-        // Expand `~` in the destination.
+        // Destinations are stored home-relative; expand to an absolute path.
         let destination = expand_path(&template.destination).to_string_lossy().to_string();
 
         match template.engine {
@@ -90,10 +91,10 @@ mod tests {
 
     fn op_template() -> Template {
         Template {
-            name: "git config".to_string(),
-            source: "git/config.tpl".to_string(),
-            destination: "~/.config/git/config".to_string(),
+            name: "config".to_string(),
+            destination: ".config/git/config".to_string(),
             engine: TemplateEngine::OpInject,
+            extension: None,
             render_command: None,
             description: None,
         }
@@ -112,12 +113,13 @@ mod tests {
     #[test]
     fn test_op_inject_command_built() {
         let tpl = op_template();
-        let cmd = TemplateEngineImpl::build_render_command(&tpl, Path::new("/repo")).unwrap();
+        let source = Path::new("/repo/templates/personal/.config/git/config.tpl");
+        let cmd = TemplateEngineImpl::build_render_command(&tpl, source).unwrap();
         assert_eq!(cmd.get_program(), "op");
         let args: Vec<_> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
         assert_eq!(args[0], "inject");
         assert_eq!(args[1], "-i");
-        assert!(args[2].ends_with("git/config.tpl"));
+        assert!(args[2].ends_with("templates/personal/.config/git/config.tpl"));
         assert_eq!(args[3], "-o");
     }
 
@@ -126,7 +128,7 @@ mod tests {
         let mut tpl = op_template();
         tpl.engine = TemplateEngine::Custom;
         tpl.render_command = None;
-        let err = TemplateEngineImpl::build_render_command(&tpl, Path::new("/repo"));
+        let err = TemplateEngineImpl::build_render_command(&tpl, Path::new("/repo/x"));
         assert!(err.is_err());
     }
 
@@ -134,12 +136,14 @@ mod tests {
     fn test_custom_builds_sh_c() {
         let mut tpl = op_template();
         tpl.engine = TemplateEngine::Custom;
+        tpl.extension = Some("j2".to_string());
         tpl.render_command = Some("tera -t {source} -o {destination}".to_string());
-        let cmd = TemplateEngineImpl::build_render_command(&tpl, Path::new("/repo")).unwrap();
+        let source = Path::new("/repo/templates/personal/.config/git/config.j2");
+        let cmd = TemplateEngineImpl::build_render_command(&tpl, source).unwrap();
         assert_eq!(cmd.get_program(), "sh");
         let args: Vec<_> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
         assert_eq!(args[0], "-c");
-        assert!(args[1].contains("/repo/git/config.tpl"));
+        assert!(args[1].contains("/repo/templates/personal/.config/git/config.j2"));
     }
 
     #[test]

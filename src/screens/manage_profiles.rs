@@ -6,16 +6,13 @@ use crate::screens::{ActionResult, RenderContext, Screen, ScreenAction, ScreenCo
 use crate::services::ProfileService;
 use crate::styles::{theme, LIST_HIGHLIGHT_SYMBOL};
 use crate::ui::Screen as ScreenId;
-use crate::utils::{
-    create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions,
-};
+use crate::utils::{create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions};
 use crate::widgets::{DialogVariant, TextInputWidget, TextInputWidgetExt};
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers, MouseButton, MouseEventKind};
 use ratatui::prelude::*;
 use ratatui::widgets::{
-    Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation,
-    Wrap,
+    Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, Wrap,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -139,9 +136,7 @@ impl ManageProfilesScreen {
         if let Ok(manifest) = crate::utils::ProfileManifest::load_or_backfill(repo_path) {
             for profile in &self.state.profiles {
                 if let Ok(resolved) = manifest.resolve_files(&profile.name) {
-                    self.state
-                        .resolved_files
-                        .insert(profile.name.clone(), resolved);
+                    self.state.resolved_files.insert(profile.name.clone(), resolved);
                 }
             }
         }
@@ -170,9 +165,7 @@ impl ManageProfilesScreen {
                 inherits,
                 copy_from,
             } => self.create_profile(config, &name, description, inherits, copy_from),
-            ProfileAction::SwitchProfile { name } => {
-                self.switch_profile(config, config_path, &name)
-            }
+            ProfileAction::SwitchProfile { name } => self.switch_profile(config, config_path, &name),
             ProfileAction::RenameProfile { old_name, new_name } => {
                 self.rename_profile(config, config_path, &old_name, &new_name)
             }
@@ -191,13 +184,7 @@ impl ManageProfilesScreen {
     ) -> Result<ActionResult> {
         info!("Creating profile: {} (inherits: {:?})", name, inherits);
 
-        match ProfileService::create_profile(
-            &config.repo_path,
-            name,
-            description,
-            inherits.clone(),
-            copy_from,
-        ) {
+        match ProfileService::create_profile(&config.repo_path, name, description, inherits.clone(), copy_from) {
             Ok(sanitized_name) => {
                 info!("Profile '{}' created successfully", sanitized_name);
 
@@ -228,12 +215,7 @@ impl ManageProfilesScreen {
     }
 
     /// Switch to a different profile.
-    fn switch_profile(
-        &mut self,
-        config: &mut Config,
-        config_path: &Path,
-        target_name: &str,
-    ) -> Result<ActionResult> {
+    fn switch_profile(&mut self, config: &mut Config, config_path: &Path, target_name: &str) -> Result<ActionResult> {
         info!(
             "Switching profile from '{}' to '{}'",
             config.active_profile, target_name
@@ -249,12 +231,7 @@ impl ManageProfilesScreen {
 
         let old_profile = config.active_profile.clone();
 
-        match ProfileService::switch_profile(
-            &config.repo_path,
-            &old_profile,
-            target_name,
-            config.backup_enabled,
-        ) {
+        match ProfileService::switch_profile(&config.repo_path, &old_profile, target_name, config.backup_enabled) {
             Ok(result) => {
                 info!(
                     "Profile switch complete: removed {} symlinks, created {}",
@@ -305,18 +282,9 @@ impl ManageProfilesScreen {
 
         let is_active = config.active_profile == old_name;
 
-        match ProfileService::rename_profile(
-            &config.repo_path,
-            old_name,
-            new_name,
-            is_active,
-            config.backup_enabled,
-        ) {
+        match ProfileService::rename_profile(&config.repo_path, old_name, new_name, is_active, config.backup_enabled) {
             Ok(sanitized_name) => {
-                info!(
-                    "Profile renamed from '{}' to '{}'",
-                    old_name, sanitized_name
-                );
+                info!("Profile renamed from '{}' to '{}'", old_name, sanitized_name);
 
                 // Update config if this was the active profile
                 if is_active {
@@ -342,10 +310,7 @@ impl ManageProfilesScreen {
                 })
             }
             Err(e) => {
-                error!(
-                    "Failed to rename profile '{}' to '{}': {}",
-                    old_name, new_name, e
-                );
+                error!("Failed to rename profile '{}' to '{}': {}", old_name, new_name, e);
                 Ok(ActionResult::ShowDialog {
                     title: "Error Renaming Profile".to_string(),
                     content: format!("Failed to rename profile: {e}"),
@@ -364,9 +329,7 @@ impl ManageProfilesScreen {
             warn!("Attempted to delete active profile '{}'", name);
             return Ok(ActionResult::ShowDialog {
                 title: "Cannot Delete Active Profile".to_string(),
-                content: format!(
-                    "Profile '{name}' is currently active.\nPlease switch to another profile first."
-                ),
+                content: format!("Profile '{name}' is currently active.\nPlease switch to another profile first."),
                 variant: DialogVariant::Error,
             });
         }
@@ -400,11 +363,7 @@ impl ManageProfilesScreen {
         keymap.get_action(key, modifiers)
     }
 
-    fn handle_mouse_event(
-        &mut self,
-        mouse: crossterm::event::MouseEvent,
-        _config: &Config,
-    ) -> ScreenAction {
+    fn handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, _config: &Config) -> ScreenAction {
         let popup_open = self.state.popup_type != ProfilePopupType::None;
 
         match mouse.kind {
@@ -415,41 +374,25 @@ impl ManageProfilesScreen {
                 // Handle clicks in create popup fields
                 if self.state.popup_type == ProfilePopupType::Create {
                     if let Some(area) = self.state.create_name_area {
-                        if x >= area.x
-                            && x < area.x + area.width
-                            && y >= area.y
-                            && y < area.y + area.height
-                        {
+                        if x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height {
                             self.state.create_focused_field = CreateField::Name;
                             return ScreenAction::Refresh;
                         }
                     }
                     if let Some(area) = self.state.create_description_area {
-                        if x >= area.x
-                            && x < area.x + area.width
-                            && y >= area.y
-                            && y < area.y + area.height
-                        {
+                        if x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height {
                             self.state.create_focused_field = CreateField::Description;
                             return ScreenAction::Refresh;
                         }
                     }
                     if let Some(area) = self.state.create_inherits_from_area {
-                        if x >= area.x
-                            && x < area.x + area.width
-                            && y >= area.y
-                            && y < area.y + area.height
-                        {
+                        if x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height {
                             self.state.create_focused_field = CreateField::InheritsFrom;
                             return ScreenAction::Refresh;
                         }
                     }
                     if let Some(area) = self.state.create_copy_from_area {
-                        if x >= area.x
-                            && x < area.x + area.width
-                            && y >= area.y
-                            && y < area.y + area.height
-                        {
+                        if x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height {
                             self.state.create_focused_field = CreateField::CopyFrom;
                             return ScreenAction::Refresh;
                         }
@@ -484,12 +427,7 @@ impl ManageProfilesScreen {
         ScreenAction::None
     }
     /// Render the profiles list on the left
-    fn render_profiles_list(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_profiles_list(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let t = theme();
         let icons = crate::icons::Icons::from_config(config);
         let active_profile = &config.active_profile;
@@ -500,15 +438,9 @@ impl ManageProfilesScreen {
             .iter()
             .map(|profile| {
                 let is_active = profile.name == *active_profile;
-                let icon = if is_active {
-                    icons.active_profile()
-                } else {
-                    " "
-                };
+                let icon = if is_active { icons.active_profile() } else { " " };
                 let name_style = if is_active {
-                    Style::default()
-                        .fg(t.text_emphasis)
-                        .add_modifier(Modifier::BOLD)
+                    Style::default().fg(t.text_emphasis).add_modifier(Modifier::BOLD)
                 } else {
                     t.text_style()
                 };
@@ -575,12 +507,7 @@ impl ManageProfilesScreen {
             .list_state
             .selected()
             .and_then(|idx| self.state.profiles.get(idx))
-            .or_else(|| {
-                self.state
-                    .profiles
-                    .iter()
-                    .find(|p| p.name == *active_profile)
-            })
+            .or_else(|| self.state.profiles.iter().find(|p| p.name == *active_profile))
             .or_else(|| self.state.profiles.first());
 
         let t = theme();
@@ -589,10 +516,7 @@ impl ManageProfilesScreen {
             let status = if is_active {
                 (format!("{} Active", icons.active_profile()), t.success)
             } else {
-                (
-                    format!("{} Inactive", icons.inactive_profile()),
-                    t.text_emphasis,
-                )
+                (format!("{} Inactive", icons.inactive_profile()), t.text_emphasis)
             };
 
             let description = profile.description.as_deref().unwrap_or("No description");
@@ -606,8 +530,7 @@ impl ManageProfilesScreen {
                 "No files synced".to_string()
             } else if let Some(resolved) = resolved {
                 // Single pass to categorize files by source
-                let (mut own_count, mut common_count, mut inherited_count) =
-                    (0usize, 0usize, 0usize);
+                let (mut own_count, mut common_count, mut inherited_count) = (0usize, 0usize, 0usize);
                 for f in resolved {
                     if f.source_profile == profile.name {
                         own_count += 1;
@@ -667,18 +590,12 @@ impl ManageProfilesScreen {
             use ratatui::text::{Line, Span};
             let mut lines = vec![
                 Line::from(vec![
-                    Span::styled(
-                        "Name: ",
-                        Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled("Name: ", Style::default().fg(t.primary).add_modifier(Modifier::BOLD)),
                     Span::styled(&profile.name, t.text_style()),
                 ]),
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled(
-                        "Status: ",
-                        Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled("Status: ", Style::default().fg(t.primary).add_modifier(Modifier::BOLD)),
                     Span::styled(status.0, Style::default().fg(status.1)),
                 ]),
                 Line::from(""),
@@ -701,10 +618,7 @@ impl ManageProfilesScreen {
                     "Description:",
                     Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
                 )]),
-                Line::from(vec![Span::styled(
-                    description,
-                    Style::default().fg(t.text_muted),
-                )]),
+                Line::from(vec![Span::styled(description, Style::default().fg(t.text_muted))]),
                 Line::from(""),
                 Line::from(vec![Span::styled(
                     &files_text,
@@ -739,17 +653,16 @@ impl ManageProfilesScreen {
 
             frame.render_widget(paragraph, area);
         } else {
-            let paragraph =
-                Paragraph::new("No profiles found.\n\nPress 'C' to create your first profile.")
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .title(" Profile Details ")
-                            .border_type(theme().border_type(false))
-                            .border_style(unfocused_border_style())
-                            .padding(ratatui::widgets::Padding::new(1, 1, 1, 1)),
-                    )
-                    .wrap(Wrap { trim: true });
+            let paragraph = Paragraph::new("No profiles found.\n\nPress 'C' to create your first profile.")
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .title(" Profile Details ")
+                        .border_type(theme().border_type(false))
+                        .border_style(unfocused_border_style())
+                        .padding(ratatui::widgets::Padding::new(1, 1, 1, 1)),
+                )
+                .wrap(Wrap { trim: true });
             frame.render_widget(paragraph, area);
         }
 
@@ -768,12 +681,7 @@ impl ManageProfilesScreen {
     }
 
     /// Render create profile popup
-    fn render_create_popup(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_create_popup(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         use crate::components::Popup;
 
         let icons = crate::icons::Icons::from_config(config);
@@ -806,10 +714,10 @@ impl ManageProfilesScreen {
             .constraints([
                 Constraint::Length(3),                                             // Name input
                 Constraint::Length(u16::from(self.state.error_message.is_some())), // Error message
-                Constraint::Length(3), // Description input
-                Constraint::Length(5), // Inherits From option
-                Constraint::Min(6),    // Copy from option (at least 6 lines, can grow)
-                Constraint::Min(0),    // Spacer
+                Constraint::Length(3),                                             // Description input
+                Constraint::Length(5),                                             // Inherits From option
+                Constraint::Min(6), // Copy from option (at least 6 lines, can grow)
+                Constraint::Min(0), // Spacer
             ])
             .split(result.content_area);
 
@@ -920,10 +828,7 @@ impl ManageProfilesScreen {
                     .highlight_symbol(LIST_HIGHLIGHT_SYMBOL);
 
                 let mut list_state = ListState::default();
-                let ui_selected_idx = self
-                    .state
-                    .create_inherits_from
-                    .map_or(Some(0), |i| Some(i + 1));
+                let ui_selected_idx = self.state.create_inherits_from.map_or(Some(0), |i| Some(i + 1));
                 list_state.select(ui_selected_idx);
 
                 frame.render_stateful_widget(list, chunks[3], &mut list_state);
@@ -979,9 +884,7 @@ impl ManageProfilesScreen {
             } else {
                 t.text_style()
             };
-            items.push(
-                ListItem::new(format!("{start_blank_prefix}Start Blank")).style(start_blank_style),
-            );
+            items.push(ListItem::new(format!("{start_blank_prefix}Start Blank")).style(start_blank_style));
 
             // Add profiles (offset by 1 because "Start Blank" is at index 0)
             for (idx, profile) in self.state.profiles.iter().enumerate() {
@@ -1042,8 +945,7 @@ impl ManageProfilesScreen {
                 use ratatui::widgets::ScrollbarState;
 
                 let selected_pos = list_state.selected().unwrap_or(0);
-                let mut scrollbar_state =
-                    ScrollbarState::new(total_items as usize).position(selected_pos);
+                let mut scrollbar_state = ScrollbarState::new(total_items as usize).position(selected_pos);
 
                 let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
                     .begin_symbol(Some("↑"))
@@ -1061,34 +963,29 @@ impl ManageProfilesScreen {
         use crate::widgets::{Dialog, DialogVariant};
 
         let selected_idx = self.state.list_state.selected();
-        let current_profile = self
-            .state
-            .profiles
-            .iter()
-            .find(|p| p.name == config.active_profile);
+        let current_profile = self.state.profiles.iter().find(|p| p.name == config.active_profile);
         let target_profile = selected_idx.and_then(|idx| self.state.profiles.get(idx));
 
-        let (title, content) =
-            if let (Some(current), Some(target)) = (current_profile, target_profile) {
-                (
-                    "Switch Profile",
-                    format!(
-                        "Current: {} ({} files)\n\
+        let (title, content) = if let (Some(current), Some(target)) = (current_profile, target_profile) {
+            (
+                "Switch Profile",
+                format!(
+                    "Current: {} ({} files)\n\
                     Target: {} ({} files)\n\n\
                     This will:\n\
                     • Remove symlinks for current profile\n\
                     • Create symlinks for target profile\n\
                     • Backup existing files (if backups are enabled)\n\n\
                     Continue?",
-                        current.name,
-                        current.synced_files.len(),
-                        target.name,
-                        target.synced_files.len()
-                    ),
-                )
-            } else {
-                ("Error", "Invalid profile selection".to_string())
-            };
+                    current.name,
+                    current.synced_files.len(),
+                    target.name,
+                    target.synced_files.len()
+                ),
+            )
+        } else {
+            ("Error", "Invalid profile selection".to_string())
+        };
 
         let k = |a| config.keymap.get_key_display_for_action(a);
         let footer_text = format!(
@@ -1209,11 +1106,7 @@ impl ManageProfilesScreen {
                 )
             }
         } else {
-            (
-                "Error",
-                "Invalid profile selection".to_string(),
-                DialogVariant::Error,
-            )
+            ("Error", "Invalid profile selection".to_string(), DialogVariant::Error)
         };
 
         let k = |a| config.keymap.get_key_display_for_action(a);
@@ -1234,8 +1127,7 @@ impl ManageProfilesScreen {
         if let Some(p) = profile {
             if !is_active {
                 // Calculate dialog position to match Dialog's internal calculation
-                let dialog_height =
-                    (f32::from(area.height) * (f32::from(dialog_height) / 100.0)) as u16;
+                let dialog_height = (f32::from(area.height) * (f32::from(dialog_height) / 100.0)) as u16;
                 let dialog_y = area.y + (area.height.saturating_sub(dialog_height)) / 2;
                 let input_y = dialog_y + dialog_height + 2; // 2 lines spacing
 
@@ -1276,7 +1168,7 @@ impl Screen for ManageProfilesScreen {
             frame,
             header_chunk,
             "DotState - Manage Profiles",
-            "Manage different profiles for different machines. Each profile has its own set of synced dotfiles."
+            "Manage different profiles for different machines. Each profile has its own set of synced dotfiles.",
         )?;
 
         // Split content: Left (profiles list), Right (profile details)
@@ -1329,9 +1221,10 @@ impl Screen for ManageProfilesScreen {
                             // For plain character keys, ALWAYS insert the character first
                             // This ensures vim bindings like h/l don't interfere with typing
                             if let KeyCode::Char(c) = key.code {
-                                if !key.modifiers.intersects(
-                                    KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
-                                ) {
+                                if !key
+                                    .modifiers
+                                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+                                {
                                     match self.state.create_focused_field {
                                         CreateField::Name => {
                                             self.state.create_name_input.insert_char(c);
@@ -1353,53 +1246,34 @@ impl Screen for ManageProfilesScreen {
                                         return Ok(ScreenAction::Refresh);
                                     }
                                     Action::NextTab => {
-                                        let inherits_disabled =
-                                            self.state.create_copy_from.is_some();
-                                        let copy_disabled =
-                                            self.state.create_inherits_from.is_some();
-                                        self.state.create_focused_field = match self
-                                            .state
-                                            .create_focused_field
-                                        {
+                                        let inherits_disabled = self.state.create_copy_from.is_some();
+                                        let copy_disabled = self.state.create_inherits_from.is_some();
+                                        self.state.create_focused_field = match self.state.create_focused_field {
                                             CreateField::Name => CreateField::Description,
-                                            CreateField::Description if inherits_disabled => {
-                                                CreateField::CopyFrom
-                                            }
+                                            CreateField::Description if inherits_disabled => CreateField::CopyFrom,
                                             CreateField::Description => CreateField::InheritsFrom,
-                                            CreateField::InheritsFrom if copy_disabled => {
-                                                CreateField::Name
-                                            }
+                                            CreateField::InheritsFrom if copy_disabled => CreateField::Name,
                                             CreateField::InheritsFrom => CreateField::CopyFrom,
                                             CreateField::CopyFrom => CreateField::Name,
                                         };
                                         return Ok(ScreenAction::Refresh);
                                     }
                                     Action::PrevTab => {
-                                        let inherits_disabled =
-                                            self.state.create_copy_from.is_some();
-                                        let copy_disabled =
-                                            self.state.create_inherits_from.is_some();
-                                        self.state.create_focused_field = match self
-                                            .state
-                                            .create_focused_field
-                                        {
-                                            CreateField::Name if copy_disabled => {
-                                                CreateField::InheritsFrom
-                                            }
+                                        let inherits_disabled = self.state.create_copy_from.is_some();
+                                        let copy_disabled = self.state.create_inherits_from.is_some();
+                                        self.state.create_focused_field = match self.state.create_focused_field {
+                                            CreateField::Name if copy_disabled => CreateField::InheritsFrom,
                                             CreateField::Name => CreateField::CopyFrom,
                                             CreateField::Description => CreateField::Name,
                                             CreateField::InheritsFrom => CreateField::Description,
-                                            CreateField::CopyFrom if inherits_disabled => {
-                                                CreateField::Description
-                                            }
+                                            CreateField::CopyFrom if inherits_disabled => CreateField::Description,
                                             CreateField::CopyFrom => CreateField::InheritsFrom,
                                         };
                                         return Ok(ScreenAction::Refresh);
                                     }
                                     Action::Confirm => {
                                         if !self.state.create_name_input.text().is_empty() {
-                                            let name =
-                                                self.state.create_name_input.text().to_string();
+                                            let name = self.state.create_name_input.text().to_string();
 
                                             // Validate reserved name
                                             if name.eq_ignore_ascii_case("common") {
@@ -1408,28 +1282,15 @@ impl Screen for ManageProfilesScreen {
                                                 return Ok(ScreenAction::Refresh);
                                             }
 
-                                            let description = if self
-                                                .state
-                                                .create_description_input
-                                                .text()
-                                                .is_empty()
-                                            {
+                                            let description = if self.state.create_description_input.text().is_empty() {
                                                 None
                                             } else {
-                                                Some(
-                                                    self.state
-                                                        .create_description_input
-                                                        .text()
-                                                        .to_string(),
-                                                )
+                                                Some(self.state.create_description_input.text().to_string())
                                             };
-                                            let inherits =
-                                                self.state.create_inherits_from.and_then(|idx| {
-                                                    self.state
-                                                        .profiles
-                                                        .get(idx)
-                                                        .map(|p| p.name.clone())
-                                                });
+                                            let inherits = self
+                                                .state
+                                                .create_inherits_from
+                                                .and_then(|idx| self.state.profiles.get(idx).map(|p| p.name.clone()));
                                             let copy_from = self.state.create_copy_from;
 
                                             // Reset state
@@ -1456,35 +1317,24 @@ impl Screen for ManageProfilesScreen {
                             // Handle text input and specific navigation
                             match action {
                                 Some(Action::MoveUp) => {
-                                    if self.state.create_focused_field == CreateField::InheritsFrom
-                                    {
-                                        let current =
-                                            self.state.create_inherits_from.map_or(0, |i| i + 1);
+                                    if self.state.create_focused_field == CreateField::InheritsFrom {
+                                        let current = self.state.create_inherits_from.map_or(0, |i| i + 1);
                                         if current > 0 {
                                             let new_val = current - 1;
-                                            self.state.create_inherits_from = if new_val == 0 {
-                                                None
-                                            } else {
-                                                Some(new_val - 1)
-                                            };
+                                            self.state.create_inherits_from =
+                                                if new_val == 0 { None } else { Some(new_val - 1) };
                                             // Clear copy_from when inherits is set
                                             if self.state.create_inherits_from.is_some() {
                                                 self.state.create_copy_from = None;
                                             }
                                             return Ok(ScreenAction::Refresh);
                                         }
-                                    } else if self.state.create_focused_field
-                                        == CreateField::CopyFrom
-                                    {
-                                        let current =
-                                            self.state.create_copy_from.map_or(0, |i| i + 1);
+                                    } else if self.state.create_focused_field == CreateField::CopyFrom {
+                                        let current = self.state.create_copy_from.map_or(0, |i| i + 1);
                                         if current > 0 {
                                             let new_val = current - 1;
-                                            self.state.create_copy_from = if new_val == 0 {
-                                                None
-                                            } else {
-                                                Some(new_val - 1)
-                                            };
+                                            self.state.create_copy_from =
+                                                if new_val == 0 { None } else { Some(new_val - 1) };
                                             // Clear inherits when copy_from is set
                                             if self.state.create_copy_from.is_some() {
                                                 self.state.create_inherits_from = None;
@@ -1494,12 +1344,10 @@ impl Screen for ManageProfilesScreen {
                                     }
                                 }
                                 Some(Action::MoveDown) => {
-                                    if self.state.create_focused_field == CreateField::InheritsFrom
-                                    {
+                                    if self.state.create_focused_field == CreateField::InheritsFrom {
                                         let profiles = &self.state.profiles;
                                         let total = profiles.len() + 1; // +1 for "None"
-                                        let current =
-                                            self.state.create_inherits_from.map_or(0, |i| i + 1);
+                                        let current = self.state.create_inherits_from.map_or(0, |i| i + 1);
                                         if current < total - 1 {
                                             let new_val = current + 1;
                                             self.state.create_inherits_from = Some(new_val - 1);
@@ -1507,13 +1355,10 @@ impl Screen for ManageProfilesScreen {
                                             self.state.create_copy_from = None;
                                             return Ok(ScreenAction::Refresh);
                                         }
-                                    } else if self.state.create_focused_field
-                                        == CreateField::CopyFrom
-                                    {
+                                    } else if self.state.create_focused_field == CreateField::CopyFrom {
                                         let profiles = &self.state.profiles;
                                         let total = profiles.len() + 1; // +1 for "Blank"
-                                        let current =
-                                            self.state.create_copy_from.map_or(0, |i| i + 1);
+                                        let current = self.state.create_copy_from.map_or(0, |i| i + 1);
                                         if current < total - 1 {
                                             let new_val = current + 1;
                                             self.state.create_copy_from = Some(new_val - 1);
@@ -1531,10 +1376,9 @@ impl Screen for ManageProfilesScreen {
                                                     CreateField::Name => {
                                                         self.state.create_name_input.move_left();
                                                     }
-                                                    CreateField::Description => self
-                                                        .state
-                                                        .create_description_input
-                                                        .move_left(),
+                                                    CreateField::Description => {
+                                                        self.state.create_description_input.move_left()
+                                                    }
                                                     _ => {}
                                                 }
                                                 return Ok(ScreenAction::Refresh);
@@ -1544,10 +1388,9 @@ impl Screen for ManageProfilesScreen {
                                                     CreateField::Name => {
                                                         self.state.create_name_input.move_right();
                                                     }
-                                                    CreateField::Description => self
-                                                        .state
-                                                        .create_description_input
-                                                        .move_right(),
+                                                    CreateField::Description => {
+                                                        self.state.create_description_input.move_right()
+                                                    }
                                                     _ => {}
                                                 }
                                                 return Ok(ScreenAction::Refresh);
@@ -1557,10 +1400,9 @@ impl Screen for ManageProfilesScreen {
                                                     CreateField::Name => {
                                                         self.state.create_name_input.move_home();
                                                     }
-                                                    CreateField::Description => self
-                                                        .state
-                                                        .create_description_input
-                                                        .move_home(),
+                                                    CreateField::Description => {
+                                                        self.state.create_description_input.move_home()
+                                                    }
                                                     _ => {}
                                                 }
                                                 return Ok(ScreenAction::Refresh);
@@ -1570,10 +1412,9 @@ impl Screen for ManageProfilesScreen {
                                                     CreateField::Name => {
                                                         self.state.create_name_input.move_end();
                                                     }
-                                                    CreateField::Description => self
-                                                        .state
-                                                        .create_description_input
-                                                        .move_end(),
+                                                    CreateField::Description => {
+                                                        self.state.create_description_input.move_end()
+                                                    }
                                                     _ => {}
                                                 }
                                                 return Ok(ScreenAction::Refresh);
@@ -1583,10 +1424,9 @@ impl Screen for ManageProfilesScreen {
                                                     CreateField::Name => {
                                                         self.state.create_name_input.backspace();
                                                     }
-                                                    CreateField::Description => self
-                                                        .state
-                                                        .create_description_input
-                                                        .backspace(),
+                                                    CreateField::Description => {
+                                                        self.state.create_description_input.backspace()
+                                                    }
                                                     _ => {}
                                                 }
                                                 return Ok(ScreenAction::Refresh);
@@ -1597,9 +1437,7 @@ impl Screen for ManageProfilesScreen {
                                                         self.state.create_name_input.delete();
                                                     }
                                                     CreateField::Description => {
-                                                        self.state
-                                                            .create_description_input
-                                                            .delete();
+                                                        self.state.create_description_input.delete();
                                                     }
                                                     _ => {}
                                                 }
@@ -1611,19 +1449,16 @@ impl Screen for ManageProfilesScreen {
 
                                     // Char input
                                     if let KeyCode::Char(c) = key.code {
-                                        if !key.modifiers.intersects(
-                                            KeyModifiers::CONTROL
-                                                | KeyModifiers::ALT
-                                                | KeyModifiers::SUPER,
-                                        ) {
+                                        if !key
+                                            .modifiers
+                                            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+                                        {
                                             match self.state.create_focused_field {
                                                 CreateField::Name => {
                                                     self.state.create_name_input.insert_char(c);
                                                 }
                                                 CreateField::Description => {
-                                                    self.state
-                                                        .create_description_input
-                                                        .insert_char(c);
+                                                    self.state.create_description_input.insert_char(c);
                                                 }
                                                 _ => {}
                                             }
@@ -1637,9 +1472,10 @@ impl Screen for ManageProfilesScreen {
                             // For plain character keys, ALWAYS insert the character first
                             // This ensures vim bindings like h/l don't interfere with typing
                             if let KeyCode::Char(c) = key.code {
-                                if !key.modifiers.intersects(
-                                    KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
-                                ) {
+                                if !key
+                                    .modifiers
+                                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+                                {
                                     self.state.rename_input.insert_char(c);
                                     return Ok(ScreenAction::Refresh);
                                 }
@@ -1654,8 +1490,7 @@ impl Screen for ManageProfilesScreen {
                                     }
                                     Action::Confirm => {
                                         if !self.state.rename_input.text().is_empty() {
-                                            let new_name =
-                                                self.state.rename_input.text().to_string();
+                                            let new_name = self.state.rename_input.text().to_string();
 
                                             // Validate reserved name
                                             if new_name.eq_ignore_ascii_case("common") {
@@ -1671,10 +1506,7 @@ impl Screen for ManageProfilesScreen {
                                                     self.state.popup_type = ProfilePopupType::None;
                                                     self.state.rename_input.clear();
                                                     self.state.error_message = None;
-                                                    return Ok(ScreenAction::RenameProfile {
-                                                        old_name,
-                                                        new_name,
-                                                    });
+                                                    return Ok(ScreenAction::RenameProfile { old_name, new_name });
                                                 }
                                             }
                                         }
@@ -1712,9 +1544,10 @@ impl Screen for ManageProfilesScreen {
                             // For plain character keys, ALWAYS insert the character first
                             // This ensures vim bindings like h/l don't interfere with typing
                             if let KeyCode::Char(c) = key.code {
-                                if !key.modifiers.intersects(
-                                    KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
-                                ) {
+                                if !key
+                                    .modifiers
+                                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+                                {
                                     self.state.delete_confirm_input.insert_char(c);
                                     return Ok(ScreenAction::Refresh);
                                 }
@@ -1731,15 +1564,11 @@ impl Screen for ManageProfilesScreen {
                                         if let Some(idx) = self.state.list_state.selected() {
                                             let profiles = &self.state.profiles;
                                             if let Some(profile) = profiles.get(idx) {
-                                                if self.state.delete_confirm_input.text()
-                                                    == profile.name
-                                                {
+                                                if self.state.delete_confirm_input.text() == profile.name {
                                                     let name = profile.name.clone();
                                                     self.state.popup_type = ProfilePopupType::None;
                                                     self.state.delete_confirm_input.clear();
-                                                    return Ok(ScreenAction::DeleteProfile {
-                                                        name,
-                                                    });
+                                                    return Ok(ScreenAction::DeleteProfile { name });
                                                 }
                                             }
                                         }
@@ -1775,9 +1604,10 @@ impl Screen for ManageProfilesScreen {
                                 }
                             }
                             if let KeyCode::Char(c) = key.code {
-                                if !key.modifiers.intersects(
-                                    KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
-                                ) {
+                                if !key
+                                    .modifiers
+                                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+                                {
                                     self.state.delete_confirm_input.insert_char(c);
                                     return Ok(ScreenAction::Refresh);
                                 }
@@ -1832,12 +1662,11 @@ impl Screen for ManageProfilesScreen {
                         Action::MoveDown => {
                             let profiles = &self.state.profiles;
                             let selected = self.state.list_state.selected().unwrap_or(0);
-                            let new_selected =
-                                if !profiles.is_empty() && selected < profiles.len() - 1 {
-                                    selected + 1
-                                } else {
-                                    selected
-                                };
+                            let new_selected = if !profiles.is_empty() && selected < profiles.len() - 1 {
+                                selected + 1
+                            } else {
+                                selected
+                            };
                             self.state.list_state.select(Some(new_selected));
                             return Ok(ScreenAction::Refresh);
                         }
@@ -1855,8 +1684,7 @@ impl Screen for ManageProfilesScreen {
                                 let profiles = &self.state.profiles;
                                 if let Some(profile) = profiles.get(idx) {
                                     self.state.popup_type = ProfilePopupType::Rename;
-                                    self.state.rename_input =
-                                        crate::utils::TextInput::with_text(&profile.name);
+                                    self.state.rename_input = crate::utils::TextInput::with_text(&profile.name);
                                     return Ok(ScreenAction::Refresh);
                                 }
                             }

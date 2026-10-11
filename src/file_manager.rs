@@ -44,14 +44,10 @@ impl FileManager {
             let path = self.home_dir.join(name);
             // Only include if the path actually exists (file or directory)
             if path.exists() {
-                let relative = path
-                    .strip_prefix(&self.home_dir)
-                    .unwrap_or(&path)
-                    .to_path_buf();
+                let relative = path.strip_prefix(&self.home_dir).unwrap_or(&path).to_path_buf();
 
                 // Try to find description from default candidates
-                let description = crate::dotfile_candidates::find_candidate(name)
-                    .map(|c| c.description.to_string());
+                let description = crate::dotfile_candidates::find_candidate(name).map(|c| c.description.to_string());
 
                 found.push(Dotfile {
                     original_path: path.clone(),
@@ -75,8 +71,7 @@ impl FileManager {
         const MAX_SYMLINK_DEPTH: usize = 20; // Prevent infinite loops
 
         while current.is_symlink() && depth < MAX_SYMLINK_DEPTH {
-            let target = fs::read_link(&current)
-                .with_context(|| format!("Failed to read symlink: {current:?}"))?;
+            let target = fs::read_link(&current).with_context(|| format!("Failed to read symlink: {current:?}"))?;
             debug!("Symlink at depth {}: {:?} -> {:?}", depth, current, target);
 
             // If the symlink is relative, resolve it relative to the parent
@@ -95,17 +90,11 @@ impl FileManager {
         }
 
         if depth >= MAX_SYMLINK_DEPTH {
-            warn!(
-                "Symlink depth exceeded (max {}) for: {:?}",
-                MAX_SYMLINK_DEPTH, path
-            );
+            warn!("Symlink depth exceeded (max {}) for: {:?}", MAX_SYMLINK_DEPTH, path);
             return Err(anyhow::anyhow!("Symlink depth exceeded for: {path:?}"));
         }
 
-        debug!(
-            "Resolved symlink: {:?} -> {:?} (depth: {})",
-            path, current, depth
-        );
+        debug!("Resolved symlink: {:?} -> {:?} (depth: {})", path, current, depth);
         Ok(current)
     }
 
@@ -127,13 +116,11 @@ impl FileManager {
         if dest.exists() {
             if dest.is_dir() {
                 info!("Removing existing directory at destination: {:?}", dest);
-                fs::remove_dir_all(dest)
-                    .with_context(|| format!("Failed to remove existing directory: {dest:?}"))?;
+                fs::remove_dir_all(dest).with_context(|| format!("Failed to remove existing directory: {dest:?}"))?;
                 debug!("Successfully removed existing directory: {:?}", dest);
             } else {
                 info!("Removing existing file at destination: {:?}", dest);
-                fs::remove_file(dest)
-                    .with_context(|| format!("Failed to remove existing file: {dest:?}"))?;
+                fs::remove_file(dest).with_context(|| format!("Failed to remove existing file: {dest:?}"))?;
                 debug!("Successfully removed existing file: {:?}", dest);
             }
         }
@@ -142,28 +129,21 @@ impl FileManager {
         if let Some(parent) = dest.parent() {
             if !parent.exists() {
                 debug!("Creating parent directory: {:?}", parent);
-                fs::create_dir_all(parent)
-                    .with_context(|| format!("Failed to create parent directory: {parent:?}"))?;
+                fs::create_dir_all(parent).with_context(|| format!("Failed to create parent directory: {parent:?}"))?;
                 info!("Created parent directory: {:?}", parent);
             }
         }
 
         // Use metadata to check file type (follows symlinks)
-        let source_metadata = fs::metadata(source)
-            .with_context(|| format!("Failed to read metadata for source: {source:?}"))?;
+        let source_metadata =
+            fs::metadata(source).with_context(|| format!("Failed to read metadata for source: {source:?}"))?;
 
         if source_metadata.is_file() {
             let file_size = source_metadata.len();
-            info!(
-                "Copying file ({} bytes): {:?} -> {:?}",
-                file_size, source, dest
-            );
-            let bytes_copied = fs::copy(source, dest)
-                .with_context(|| format!("Failed to copy file from {source:?} to {dest:?}"))?;
-            info!(
-                "Successfully copied file ({} bytes): {:?}",
-                bytes_copied, dest
-            );
+            info!("Copying file ({} bytes): {:?} -> {:?}", file_size, source, dest);
+            let bytes_copied =
+                fs::copy(source, dest).with_context(|| format!("Failed to copy file from {source:?} to {dest:?}"))?;
+            info!("Successfully copied file ({} bytes): {:?}", bytes_copied, dest);
             debug!(
                 "File copy complete: source={:?}, dest={:?}, size={}",
                 source, dest, bytes_copied
@@ -175,9 +155,7 @@ impl FileManager {
             info!("Successfully copied directory: {:?} -> {:?}", source, dest);
         } else {
             warn!("Source path is neither file nor directory: {:?}", source);
-            return Err(anyhow::anyhow!(
-                "Source path is neither file nor directory: {source:?}"
-            ));
+            return Err(anyhow::anyhow!("Source path is neither file nor directory: {source:?}"));
         }
 
         Ok(())
@@ -201,8 +179,7 @@ impl FileManager {
 /// - Internal content symlinks should be preserved as-is without tracking
 pub fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
     debug!("Creating destination directory: {:?}", dst);
-    fs::create_dir_all(dst)
-        .with_context(|| format!("Failed to create destination directory: {dst:?}"))?;
+    fs::create_dir_all(dst).with_context(|| format!("Failed to create destination directory: {dst:?}"))?;
 
     let mut files_copied = 0;
     let mut dirs_copied = 0;
@@ -232,10 +209,7 @@ pub fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
                     #[cfg(unix)]
                     {
                         if let Err(e) = std::os::unix::fs::symlink(&link_target, &dst_path) {
-                            warn!(
-                                "Failed to create symlink {:?} -> {:?}: {}",
-                                dst_path, link_target, e
-                            );
+                            warn!("Failed to create symlink {:?} -> {:?}: {}", dst_path, link_target, e);
                             skipped += 1;
                             continue;
                         }
@@ -251,10 +225,7 @@ pub fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
                             std::os::windows::fs::symlink_file(&link_target, &dst_path)
                         };
                         if let Err(e) = result {
-                            warn!(
-                                "Failed to create symlink {:?} -> {:?}: {}",
-                                dst_path, link_target, e
-                            );
+                            warn!("Failed to create symlink {:?} -> {:?}: {}", dst_path, link_target, e);
                             skipped += 1;
                             continue;
                         }
@@ -273,10 +244,7 @@ pub fn copy_dir_all(src: &Path, dst: &Path) -> Result<()> {
         } else {
             if let Ok(metadata) = path.metadata() {
                 let file_size = metadata.len();
-                debug!(
-                    "Copying file ({} bytes): {:?} -> {:?}",
-                    file_size, path, dst_path
-                );
+                debug!("Copying file ({} bytes): {:?} -> {:?}", file_size, path, dst_path);
             } else {
                 debug!("Copying file: {:?} -> {:?}", path, dst_path);
             }
@@ -318,10 +286,7 @@ mod tests {
 
         // Create some test files
         let test_file1 = home_dir.join(".testrc");
-        File::create(&test_file1)
-            .unwrap()
-            .write_all(b"test")
-            .unwrap();
+        File::create(&test_file1).unwrap().write_all(b"test").unwrap();
 
         // Don't create .nonexistent - it shouldn't be found
 
@@ -378,10 +343,7 @@ mod tests {
 
         // Create target file
         let target = temp_dir.path().join("target");
-        File::create(&target)
-            .unwrap()
-            .write_all(b"content")
-            .unwrap();
+        File::create(&target).unwrap().write_all(b"content").unwrap();
 
         // Create symlink
         let symlink = temp_dir.path().join("symlink");
@@ -439,10 +401,7 @@ mod tests {
 
         // Create source file
         let source = temp_dir.path().join("source.txt");
-        File::create(&source)
-            .unwrap()
-            .write_all(b"test content")
-            .unwrap();
+        File::create(&source).unwrap().write_all(b"test content").unwrap();
 
         // Copy to destination
         let dest = temp_dir.path().join("dest.txt");
@@ -496,17 +455,11 @@ mod tests {
 
         // Create existing destination
         let dest = temp_dir.path().join("dest.txt");
-        File::create(&dest)
-            .unwrap()
-            .write_all(b"old content")
-            .unwrap();
+        File::create(&dest).unwrap().write_all(b"old content").unwrap();
 
         // Create new source
         let source = temp_dir.path().join("source.txt");
-        File::create(&source)
-            .unwrap()
-            .write_all(b"new content")
-            .unwrap();
+        File::create(&source).unwrap().write_all(b"new content").unwrap();
 
         // Copy should overwrite
         fm.copy_to_repo(&source, &dest).unwrap();
@@ -523,21 +476,12 @@ mod tests {
         let source = temp_dir.path().join("source");
         std::fs::create_dir_all(&source).unwrap();
 
-        File::create(source.join("a.txt"))
-            .unwrap()
-            .write_all(b"a")
-            .unwrap();
-        File::create(source.join("b.txt"))
-            .unwrap()
-            .write_all(b"b")
-            .unwrap();
+        File::create(source.join("a.txt")).unwrap().write_all(b"a").unwrap();
+        File::create(source.join("b.txt")).unwrap().write_all(b"b").unwrap();
 
         let nested = source.join("nested");
         std::fs::create_dir_all(&nested).unwrap();
-        File::create(nested.join("c.txt"))
-            .unwrap()
-            .write_all(b"c")
-            .unwrap();
+        File::create(nested.join("c.txt")).unwrap().write_all(b"c").unwrap();
 
         // Copy
         let dest = temp_dir.path().join("dest");
@@ -548,10 +492,7 @@ mod tests {
         assert!(dest.is_dir());
         assert_eq!(std::fs::read_to_string(dest.join("a.txt")).unwrap(), "a");
         assert_eq!(std::fs::read_to_string(dest.join("b.txt")).unwrap(), "b");
-        assert_eq!(
-            std::fs::read_to_string(dest.join("nested/c.txt")).unwrap(),
-            "c"
-        );
+        assert_eq!(std::fs::read_to_string(dest.join("nested/c.txt")).unwrap(), "c");
     }
 
     #[test]
@@ -573,10 +514,7 @@ mod tests {
         // Resolving should fail due to max depth
         let result = fm.resolve_symlink(&current);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Symlink depth exceeded"));
+        assert!(result.unwrap_err().to_string().contains("Symlink depth exceeded"));
     }
 
     #[test]

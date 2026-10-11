@@ -33,18 +33,18 @@ pub enum TemplatesCommand {
         /// Target profile (defaults to active profile)
         #[arg(short, long)]
         profile: Option<String>,
-        /// Template display name
+        /// Template display name (no file extension)
         #[arg(short, long)]
         name: Option<String>,
-        /// Source template path, relative to the repo root (e.g. "git/config.tpl")
-        #[arg(short, long)]
-        source: Option<String>,
-        /// Destination path for the rendered file (e.g. "~/.config/git/config")
+        /// Destination path for the rendered file, relative to home (e.g. ".config/git/config")
         #[arg(short, long)]
         destination: Option<String>,
         /// Template engine (op-inject, custom)
         #[arg(short, long)]
         engine: Option<String>,
+        /// Source file extension for the custom engine (e.g. "j2")
+        #[arg(short = 'x', long)]
+        extension: Option<String>,
         /// Render command (required for custom engine; supports {source}/{destination})
         #[arg(long)]
         render_command: Option<String>,
@@ -94,12 +94,20 @@ pub fn execute(command: TemplatesCommand) -> Result<()> {
         TemplatesCommand::Add {
             profile,
             name,
-            source,
             destination,
             engine,
+            extension,
             render_command,
             description,
-        } => cmd_add(profile, name, source, destination, engine, render_command, description),
+        } => cmd_add(
+            profile,
+            name,
+            destination,
+            engine,
+            extension,
+            render_command,
+            description,
+        ),
         TemplatesCommand::Remove { profile, yes, name } => cmd_remove(profile, yes, name),
         TemplatesCommand::Render { profile, all, name } => cmd_render(profile, all, name),
         TemplatesCommand::Check { profile } => cmd_check(profile),
@@ -138,7 +146,7 @@ fn cmd_help(command: Option<String>) -> Result<()> {
     match command.as_deref() {
         Some("list") => println!("dotstate templates list [--profile <name>] [--verbose]"),
         Some("add") => println!(
-            "dotstate templates add [--profile <name>] --name <name> --source <path> \\\n  --destination <path> --engine <op-inject|custom> [--render-command <cmd>] [--description <text>]"
+            "dotstate templates add [--profile <name>] --name <name> --destination <rel-path> \\\n  --engine <op-inject|custom> [--extension <ext>] [--render-command <cmd>] [--description <text>]"
         ),
         Some("remove") => {
             println!("dotstate templates remove [--profile <name>] [--yes] [<name>]");
@@ -189,7 +197,8 @@ fn cmd_list(profile: Option<String>, verbose: bool) -> Result<()> {
     let mut rendered_count = 0;
     let mut missing_count = 0;
 
-    for template in &templates {
+    for resolved in &templates {
+        let template = &resolved.template;
         let engine = engine_str(&template.engine);
         let check = TemplateService::check_template(template);
         let status_str = match check.status {
@@ -204,10 +213,16 @@ fn cmd_list(profile: Option<String>, verbose: bool) -> Result<()> {
             TemplateStatus::Unknown => "? unknown".to_string(),
         };
 
+        let origin = if resolved.source_profile == profile_name {
+            String::new()
+        } else {
+            format!(" ({})", resolved.source_profile)
+        };
+
         if verbose {
-            println!("  {}", template.name);
+            println!("  {}{origin}", template.name);
             println!("    Engine: {engine}");
-            println!("    Source: {}", template.source);
+            println!("    Source: {}", resolved.source_relative_path());
             println!("    Destination: {}", template.destination);
             if let Some(ref cmd) = template.render_command {
                 println!("    Render command: {cmd}");
@@ -220,7 +235,10 @@ fn cmd_list(profile: Option<String>, verbose: bool) -> Result<()> {
         } else {
             println!(
                 "  {:<16} {:<10} {:<28} {}",
-                template.name, engine, template.destination, status_str
+                format!("{}{origin}", template.name),
+                engine,
+                template.destination,
+                status_str
             );
         }
     }
@@ -239,9 +257,9 @@ fn cmd_list(profile: Option<String>, verbose: bool) -> Result<()> {
 fn cmd_add(
     profile: Option<String>,
     name: Option<String>,
-    source: Option<String>,
     destination: Option<String>,
     engine: Option<String>,
+    extension: Option<String>,
     render_command: Option<String>,
     description: Option<String>,
 ) -> Result<()> {
@@ -257,27 +275,23 @@ fn cmd_add(
 
     let name = match name {
         Some(n) => n,
-        None => prompt_string("Name", None)?,
+        None => prompt_string("Name (no extension)", None)?,
     };
 
-    if existing.iter().any(|t| t.name == name) {
+    if existing.iter().any(|t| t.template.name == name) {
         print_error(&format!("Template '{name}' already exists in profile '{profile_name}'"));
         std::process::exit(1);
     }
 
-    let source = match source {
-        Some(s) => s,
-        None => prompt_string("Source (repo-relative, e.g. git/config.tpl)", None)?,
-    };
-
     let destination = match destination {
         Some(d) => d,
-        None => prompt_string("Destination (e.g. ~/.config/git/config)", None)?,
+        None => prompt_string("Destination (home-relative, e.g. .config/git/config)", None)?,
     };
 
-    if existing.iter().any(|t| t.destination == destination) {
+    let dest_norm = destination.trim().trim_start_matches('/').to_string();
+    if existing.iter().any(|t| t.template.destination == dest_norm) {
         print_error(&format!(
-            "A template with destination '{destination}' already exists in profile '{profile_name}'"
+            "A template with destination '{dest_norm}' already exists in profile '{profile_name}'"
         ));
         std::process::exit(1);
     }
@@ -288,6 +302,15 @@ fn cmd_add(
     };
 
     let is_custom = engine == TemplateEngine::Custom;
+
+    let extension = if is_custom {
+        match extension {
+            Some(x) => x,
+            None => prompt_string("Source file extension (e.g. j2)", None)?,
+        }
+    } else {
+        String::new()
+    };
 
     let render_cmd = if is_custom {
         match render_command {
@@ -305,9 +328,9 @@ fn cmd_add(
 
     let params = TemplateCreationParams {
         name: &name,
-        source: &source,
         destination: &destination,
         engine: engine.clone(),
+        extension: &extension,
         render_command: &render_cmd,
         description: &desc,
     };
@@ -323,9 +346,18 @@ fn cmd_add(
     }
 
     let template = TemplateService::create_template(params);
+    let source_rel = template.source_relative_path(&profile_name);
+
+    // Create the source stub so the user can author it before rendering.
+    let created = TemplateService::ensure_source_stub(&ctx.config.repo_path, &profile_name, &template)?;
     TemplateService::add_template(&ctx.config.repo_path, &profile_name, template)?;
 
     print_success(&format!("Template '{name}' added to profile '{profile_name}'"));
+    if created {
+        print_info(&format!("Created source stub: {source_rel}"));
+    } else {
+        print_info(&format!("Using existing source: {source_rel}"));
+    }
 
     Ok(())
 }
@@ -346,22 +378,36 @@ fn cmd_remove(profile: Option<String>, yes: bool, name: Option<String>) -> Resul
         return Ok(());
     }
 
-    let (index, template_name) = if let Some(ref n) = name {
-        if let Some(i) = templates.iter().position(|t| t.name == *n) {
-            (i, n.clone())
+    // Only templates owned by this profile can be removed here.
+    let owned: Vec<&_> = templates.iter().filter(|t| t.source_profile == profile_name).collect();
+    if owned.is_empty() {
+        println!(
+            "No templates owned by profile '{profile_name}' (inherited templates must be removed from their parent)."
+        );
+        return Ok(());
+    }
+
+    let template_name = if let Some(n) = name {
+        if owned.iter().any(|t| t.template.name == n) {
+            n
         } else {
-            print_error(&format!("Template '{n}' not found in profile '{profile_name}'"));
+            print_error(&format!("Template '{n}' is not owned by profile '{profile_name}'"));
             std::process::exit(1);
         }
     } else {
         println!("Select template to remove from profile '{profile_name}':\n");
-        let options: Vec<(String, Option<String>)> = templates
+        let options: Vec<(String, Option<String>)> = owned
             .iter()
-            .map(|t| (t.name.clone(), Some(format!("({})", engine_str(&t.engine)))))
+            .map(|t| {
+                (
+                    t.template.name.clone(),
+                    Some(format!("({})", engine_str(&t.template.engine))),
+                )
+            })
             .collect();
         let options_ref: Vec<(&str, Option<&str>)> = options.iter().map(|(n, s)| (n.as_str(), s.as_deref())).collect();
         let selected = prompt_select_with_suffix("Template", &options_ref)?;
-        (selected, templates[selected].name.clone())
+        owned[selected].template.name.clone()
     };
 
     if !yes {
@@ -371,6 +417,13 @@ fn cmd_remove(profile: Option<String>, yes: bool, name: Option<String>) -> Resul
             return Ok(());
         }
     }
+
+    // Resolve the index within the profile's own (unsorted) templates list.
+    let profile_templates = TemplateService::profile_templates(&ctx.config.repo_path, &profile_name)?;
+    let index = profile_templates
+        .iter()
+        .position(|t| t.name == template_name)
+        .ok_or_else(|| anyhow::anyhow!("Template '{template_name}' not found in profile"))?;
 
     TemplateService::delete_template(&ctx.config.repo_path, &profile_name, index)?;
 
@@ -400,7 +453,7 @@ fn cmd_render(profile: Option<String>, _all: bool, name: Option<String>) -> Resu
     // Select which templates to render. A named template renders just that one;
     // otherwise (with or without --all) every template is rendered.
     let to_render: Vec<_> = if let Some(ref n) = name {
-        let Some(t) = templates.iter().find(|t| t.name == *n) else {
+        let Some(t) = templates.iter().find(|t| t.template.name == *n) else {
             print_error(&format!("Template '{n}' not found in profile '{profile_name}'"));
             std::process::exit(1);
         };
@@ -411,7 +464,8 @@ fn cmd_render(profile: Option<String>, _all: bool, name: Option<String>) -> Resu
 
     let mut failures = 0;
 
-    for template in &to_render {
+    for resolved in &to_render {
+        let template = &resolved.template;
         print_info(&format!(
             "Rendering '{}' ({}) -> {}",
             template.name,
@@ -419,7 +473,7 @@ fn cmd_render(profile: Option<String>, _all: bool, name: Option<String>) -> Resu
             template.destination
         ));
 
-        match TemplateService::render_template(&ctx.config.repo_path, template) {
+        match TemplateService::render_template(&ctx.config.repo_path, resolved) {
             Ok(outcome) => {
                 for line in &outcome.output {
                     println!("    {line}");
@@ -475,7 +529,8 @@ fn cmd_check(profile: Option<String>) -> Result<()> {
 
     println!("Template status for profile '{profile_name}':\n");
 
-    for template in &templates {
+    for resolved in &templates {
+        let template = &resolved.template;
         let check = TemplateService::check_template(template);
         let status_str = match check.status {
             TemplateStatus::Rendered => {

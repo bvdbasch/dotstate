@@ -39,12 +39,7 @@ impl BackupManager {
 
     /// Backup a file or directory to the backup session directory
     /// Returns the path where the backup was created
-    pub fn backup_path(
-        &self,
-        session_dir: &Path,
-        source: &Path,
-        relative_name: &str,
-    ) -> Result<PathBuf> {
+    pub fn backup_path(&self, session_dir: &Path, source: &Path, relative_name: &str) -> Result<PathBuf> {
         let backup_dest = session_dir.join(relative_name);
 
         // Create parent directories if needed
@@ -53,14 +48,11 @@ impl BackupManager {
         }
 
         // Get metadata to determine if it's a directory
-        let metadata = source
-            .metadata()
-            .context("Failed to read source metadata for backup")?;
+        let metadata = source.metadata().context("Failed to read source metadata for backup")?;
 
         if metadata.is_dir() {
-            crate::file_manager::copy_dir_all(source, &backup_dest).with_context(|| {
-                format!("Failed to backup directory {source:?} to {backup_dest:?}")
-            })?;
+            crate::file_manager::copy_dir_all(source, &backup_dest)
+                .with_context(|| format!("Failed to backup directory {source:?} to {backup_dest:?}"))?;
         } else {
             fs::copy(source, &backup_dest)
                 .with_context(|| format!("Failed to backup file {source:?} to {backup_dest:?}"))?;

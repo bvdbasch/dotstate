@@ -149,12 +149,10 @@ impl<'a> Popup<'a> {
 
         // Calculate popup area: percentage-of-parent, floored at the declared
         // minimum, and capped at the parent area so we never overflow.
-        let popup_width = ((f32::from(area.width) * (f32::from(self.width_percent) / 100.0))
-            as u16)
+        let popup_width = ((f32::from(area.width) * (f32::from(self.width_percent) / 100.0)) as u16)
             .max(self.min_width)
             .min(area.width);
-        let popup_height = ((f32::from(area.height) * (f32::from(self.height_percent) / 100.0))
-            as u16)
+        let popup_height = ((f32::from(area.height) * (f32::from(self.height_percent) / 100.0)) as u16)
             .max(self.min_height)
             .min(area.height);
         let popup_x = area.x + (area.width.saturating_sub(popup_width)) / 2;
@@ -277,32 +275,21 @@ mod tests {
         // Regression for GitHub issue #53: form popups silently squished
         // when terminal too short.
         let result = render_with(80, 15, || {
-            Popup::new()
-                .min_height(22)
-                .min_width(50)
-                .title("Create Profile")
+            Popup::new().min_height(22).min_width(50).title("Create Profile")
         });
-        assert!(
-            result.is_none(),
-            "expected too-small fallback (None), got {result:?}"
-        );
+        assert!(result.is_none(), "expected too-small fallback (None), got {result:?}");
     }
 
     #[test]
     fn returns_none_when_area_smaller_than_min_width() {
         let result = render_with(40, 30, || Popup::new().min_height(20).min_width(60));
-        assert!(
-            result.is_none(),
-            "expected too-small fallback (None), got {result:?}"
-        );
+        assert!(result.is_none(), "expected too-small fallback (None), got {result:?}");
     }
 
     #[test]
     fn percentage_height_floored_to_min() {
         // 10% of 30 = 3 rows, but min_height of 12 should win.
-        let result = render_with(80, 30, || {
-            Popup::new().height(10).min_height(12).min_width(40)
-        });
+        let result = render_with(80, 30, || Popup::new().height(10).min_height(12).min_width(40));
         // content_area = popup_height (12) - borders (2) - title (1 if any) - footer (2 if any)
         assert!(
             result.is_some_and(|h| h >= 8),

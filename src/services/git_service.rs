@@ -90,12 +90,8 @@ impl GitService {
             let has_uncommitted = git_mgr.has_uncommitted_changes().unwrap_or(false);
 
             // Check for unpushed commits
-            let branch = git_mgr
-                .get_current_branch()
-                .unwrap_or_else(|| "main".to_string());
-            let has_unpushed = git_mgr
-                .has_unpushed_commits("origin", &branch)
-                .unwrap_or(false);
+            let branch = git_mgr.get_current_branch().unwrap_or_else(|| "main".to_string());
+            let has_unpushed = git_mgr.has_unpushed_commits("origin", &branch).unwrap_or(false);
 
             result.has_changes = has_uncommitted || has_unpushed;
         }
@@ -431,15 +427,10 @@ impl GitService {
             // Step 4: Ensure symlinks for any new files pulled from remote
             // This is efficient - only creates symlinks for missing files
             use crate::services::ProfileService;
-            match ProfileService::ensure_profile_symlinks(
-                repo_path,
-                &config.active_profile,
-                config.backup_enabled,
-            ) {
+            match ProfileService::ensure_profile_symlinks(repo_path, &config.active_profile, config.backup_enabled) {
                 Ok((created, _skipped, errors)) => {
                     if created > 0 {
-                        success_msg
-                            .push_str(&format!("\nCreated {created} symlink(s) for new files."));
+                        success_msg.push_str(&format!("\nCreated {created} symlink(s) for new files."));
                     }
                     if !errors.is_empty() {
                         success_msg.push_str(&format!(
@@ -451,9 +442,7 @@ impl GitService {
                 }
                 Err(e) => {
                     warn!("Failed to ensure symlinks after pull: {}", e);
-                    success_msg.push_str(&format!(
-                        "\n\nWarning: Failed to create symlinks for new files: {e}"
-                    ));
+                    success_msg.push_str(&format!("\n\nWarning: Failed to create symlinks for new files: {e}"));
                 }
             }
 
@@ -473,9 +462,7 @@ impl GitService {
                 }
                 Err(e) => {
                     warn!("Failed to ensure common symlinks after pull: {}", e);
-                    success_msg.push_str(&format!(
-                        "\n\nWarning: Failed to create common symlinks: {e}"
-                    ));
+                    success_msg.push_str(&format!("\n\nWarning: Failed to create common symlinks: {e}"));
                 }
             }
         } else {
@@ -509,11 +496,7 @@ impl GitService {
     /// # Returns
     ///
     /// A tuple of (`GitManager`, `was_existing`).
-    pub fn clone_or_open(
-        remote_url: &str,
-        local_path: &Path,
-        token: Option<&str>,
-    ) -> Result<(GitManager, bool)> {
+    pub fn clone_or_open(remote_url: &str, local_path: &Path, token: Option<&str>) -> Result<(GitManager, bool)> {
         GitManager::clone_or_open(remote_url, local_path, token)
     }
 

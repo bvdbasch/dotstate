@@ -81,9 +81,7 @@ impl DiscoverySource {
     /// Try to convert from a `PackageManager`.
     /// Returns None for Custom (which doesn't have packages to discover).
     #[must_use]
-    pub fn from_package_manager(
-        manager: &crate::utils::profile_manifest::PackageManager,
-    ) -> Option<Self> {
+    pub fn from_package_manager(manager: &crate::utils::profile_manifest::PackageManager) -> Option<Self> {
         use crate::utils::profile_manifest::PackageManager;
         match manager {
             PackageManager::Brew => Some(DiscoverySource::Homebrew),
@@ -132,10 +130,7 @@ pub enum DiscoveryStatus {
         packages: Vec<DiscoveredPackage>,
     },
     /// Discovery failed
-    Failed {
-        source: DiscoverySource,
-        error: String,
-    },
+    Failed { source: DiscoverySource, error: String },
     /// No package managers available
     NoSourcesAvailable,
 }
@@ -318,10 +313,7 @@ impl PackageDiscoverer for PacmanDiscoverer {
         }
 
         // Try pacman -Ql to list files
-        let output = Command::new("pacman")
-            .args(["-Ql", package_name])
-            .output()
-            .ok()?;
+        let output = Command::new("pacman").args(["-Ql", package_name]).output().ok()?;
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -403,10 +395,7 @@ impl PackageDiscoverer for AptDiscoverer {
         }
 
         // Try dpkg -L to list files
-        let output = Command::new("dpkg")
-            .args(["-L", package_name])
-            .output()
-            .ok()?;
+        let output = Command::new("dpkg").args(["-L", package_name]).output().ok()?;
 
         if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -703,10 +692,7 @@ impl PackageDiscoverer for NpmDiscoverer {
                 }
             } else if let Some(package_name) = line.split('/').next_back() {
                 // Fallback for flat paths if node_modules not found (unlikely with -g)
-                if !package_name.is_empty()
-                    && package_name != "lib"
-                    && package_name != "node_modules"
-                {
+                if !package_name.is_empty() && package_name != "lib" && package_name != "node_modules" {
                     packages.push(DiscoveredPackage {
                         package_name: package_name.to_string(),
                         binary_name: Some(package_name.to_string()),
@@ -952,11 +938,7 @@ impl PackageDiscoveryService {
                 match discoverer.discover_packages() {
                     Ok(packages) => all_packages.extend(packages),
                     Err(e) => {
-                        warn!(
-                            "Failed to discover packages from {:?}: {}",
-                            discoverer.source(),
-                            e
-                        );
+                        warn!("Failed to discover packages from {:?}: {}", discoverer.source(), e);
                     }
                 }
             }

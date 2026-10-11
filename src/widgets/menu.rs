@@ -152,11 +152,7 @@ impl StatefulWidget for Menu {
             let bold_style = style.add_modifier(Modifier::BOLD);
 
             // Icon style
-            let icon_fg_color = if item.enabled {
-                t.primary
-            } else {
-                t.text_muted
-            };
+            let icon_fg_color = if item.enabled { t.primary } else { t.text_muted };
             let icon_style = Style::default()
                 .fg(icon_fg_color)
                 .bg(bg_color)
@@ -165,15 +161,10 @@ impl StatefulWidget for Menu {
             // Line 1: Empty padding (with background color if selected)
             let border_char = if is_selected { "▌" } else { " " };
             let padding_line = Line::from(vec![
-                Span::styled(
-                    border_char,
-                    Style::default().fg(t.border_focused).bg(bg_color),
-                ),
+                Span::styled(border_char, Style::default().fg(t.border_focused).bg(bg_color)),
                 Span::styled(" ".repeat(area.width.saturating_sub(1) as usize), style),
             ]);
-            padding_line
-                .clone()
-                .render(Rect::new(area.x, y, area.width, 1), buf);
+            padding_line.clone().render(Rect::new(area.x, y, area.width, 1), buf);
 
             // Line 2: Content (icon + text + info)
             let mut content_spans = vec![];
@@ -202,10 +193,7 @@ impl StatefulWidget for Menu {
 
                 // Add border and padding
                 if is_selected {
-                    content_spans.push(Span::styled(
-                        "▌",
-                        Style::default().fg(t.border_focused).bg(bg_color),
-                    ));
+                    content_spans.push(Span::styled("▌", Style::default().fg(t.border_focused).bg(bg_color)));
                     content_spans.push(Span::styled(" ".repeat(left_pad + 1), style));
                 } else {
                     content_spans.push(Span::styled(" ".repeat(left_pad + 2), style));
@@ -213,10 +201,7 @@ impl StatefulWidget for Menu {
 
                 // Add content
                 content_spans.push(Span::styled(format!("{} ", item.icon), icon_style));
-                content_spans.push(Span::styled(
-                    &item.text,
-                    if is_selected { bold_style } else { style },
-                ));
+                content_spans.push(Span::styled(&item.text, if is_selected { bold_style } else { style }));
 
                 if let Some(ref info) = item.info {
                     content_spans.push(Span::styled(
@@ -235,10 +220,7 @@ impl StatefulWidget for Menu {
                 // Left-aligned (default)
                 // Add left border for selected item
                 if is_selected {
-                    content_spans.push(Span::styled(
-                        "▌",
-                        Style::default().fg(t.border_focused).bg(bg_color),
-                    ));
+                    content_spans.push(Span::styled("▌", Style::default().fg(t.border_focused).bg(bg_color)));
                     content_spans.push(Span::styled(" ", style)); // Small padding after border with background
                 } else {
                     content_spans.push(Span::styled("  ", style)); // Left padding with background
@@ -246,10 +228,7 @@ impl StatefulWidget for Menu {
 
                 // Icon and text
                 content_spans.push(Span::styled(format!("{} ", item.icon), icon_style));
-                content_spans.push(Span::styled(
-                    &item.text,
-                    if is_selected { bold_style } else { style },
-                ));
+                content_spans.push(Span::styled(&item.text, if is_selected { bold_style } else { style }));
 
                 // Additional info if present
                 if let Some(ref info) = item.info {
@@ -278,10 +257,7 @@ impl StatefulWidget for Menu {
 
             // Fill the rest of the line with background, accounting for what we've already rendered
             if content_width < area.width as usize {
-                final_spans.push(Span::styled(
-                    " ".repeat(area.width as usize - content_width),
-                    style,
-                ));
+                final_spans.push(Span::styled(" ".repeat(area.width as usize - content_width), style));
             }
 
             Line::from(final_spans).render(Rect::new(area.x, y + 1, area.width, 1), buf);

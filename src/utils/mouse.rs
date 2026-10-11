@@ -12,9 +12,7 @@ pub struct MouseRegions<T> {
 impl<T> MouseRegions<T> {
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            regions: Vec::new(),
-        }
+        Self { regions: Vec::new() }
     }
 
     /// Clear all stored regions (call at the start of each render).

@@ -17,15 +17,9 @@ fn test_keymap_override_in_config() {
     config.keymap.preset = KeymapPreset::Vim;
 
     // Add an override: map 'x' to Quit (normally 'q' in vim preset)
-    config
-        .keymap
-        .overrides
-        .push(KeyBinding::new("x", Action::Quit));
+    config.keymap.overrides.push(KeyBinding::new("x", Action::Quit));
     // Add another override: map 'w' to MoveUp (normally 'k' in vim preset)
-    config
-        .keymap
-        .overrides
-        .push(KeyBinding::new("w", Action::MoveUp));
+    config.keymap.overrides.push(KeyBinding::new("w", Action::MoveUp));
 
     // Save config
     config.save(&config_path).unwrap();
@@ -51,35 +45,25 @@ fn test_keymap_override_in_config() {
 
     // Test that overrides take precedence
     // 'x' should map to Quit (override), not the default vim binding
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('x'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('x'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::Quit));
 
     // 'w' should map to MoveUp (override)
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('w'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('w'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::MoveUp));
 
     // 'q' should NOT map to Quit anymore - preset binding is shadowed by 'x' override
     // When an action is overridden, all preset bindings for that action are removed
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('q'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('q'), KeyModifiers::NONE);
     assert_eq!(action, None);
 
     // 'k' should NOT map to MoveUp anymore - preset binding is shadowed by 'w' override
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('k'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('k'), KeyModifiers::NONE);
     assert_eq!(action, None);
 
     // Other vim bindings should still work (not overridden)
     // 'j' should still map to MoveDown (not overridden)
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('j'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('j'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::MoveDown));
 }
 
@@ -97,32 +81,23 @@ fn test_keymap_override_shadows_preset() {
     config.keymap.preset = KeymapPreset::Vim;
 
     // Override 'j' to map to MoveUp instead of MoveDown
-    config
-        .keymap
-        .overrides
-        .push(KeyBinding::new("j", Action::MoveUp));
+    config.keymap.overrides.push(KeyBinding::new("j", Action::MoveUp));
 
     // Save and load
     config.save(&config_path).unwrap();
     let loaded = Config::load_or_create(&config_path).unwrap();
 
     // 'j' should now map to MoveUp (override), not MoveDown (preset)
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('j'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('j'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::MoveUp));
 
     // 'k' should NOT map to MoveUp anymore - preset binding is shadowed by override
     // This is the correct behavior: when an action is overridden, preset bindings for that action are removed
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('k'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('k'), KeyModifiers::NONE);
     assert_eq!(action, None);
 
     // 'h' should still work for MoveLeft (not overridden)
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('h'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('h'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::MoveLeft));
 }
 
@@ -140,25 +115,18 @@ fn test_keymap_override_with_modifiers() {
     config.keymap.preset = KeymapPreset::Standard;
 
     // Override Ctrl+N to map to Quit
-    config
-        .keymap
-        .overrides
-        .push(KeyBinding::new("ctrl+n", Action::Quit));
+    config.keymap.overrides.push(KeyBinding::new("ctrl+n", Action::Quit));
 
     // Save and load
     config.save(&config_path).unwrap();
     let loaded = Config::load_or_create(&config_path).unwrap();
 
     // Ctrl+N should map to Quit (override)
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('n'), KeyModifiers::CONTROL);
+    let action = loaded.keymap.get_action(KeyCode::Char('n'), KeyModifiers::CONTROL);
     assert_eq!(action, Some(Action::Quit));
 
     // Plain 'n' should not map to Quit
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('n'), KeyModifiers::NONE);
+    let action = loaded.keymap.get_action(KeyCode::Char('n'), KeyModifiers::NONE);
     assert_ne!(action, Some(Action::Quit));
 }
 
@@ -174,14 +142,8 @@ fn test_keymap_override_serialization_format() {
         ..Default::default()
     };
     config.keymap.preset = KeymapPreset::Emacs;
-    config
-        .keymap
-        .overrides
-        .push(KeyBinding::new("f1", Action::Help));
-    config
-        .keymap
-        .overrides
-        .push(KeyBinding::new("ctrl+h", Action::Quit));
+    config.keymap.overrides.push(KeyBinding::new("f1", Action::Help));
+    config.keymap.overrides.push(KeyBinding::new("ctrl+h", Action::Quit));
 
     // Save config
     config.save(&config_path).unwrap();
@@ -204,8 +166,6 @@ fn test_keymap_override_serialization_format() {
     let action = loaded.keymap.get_action(KeyCode::F(1), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::Help));
 
-    let action = loaded
-        .keymap
-        .get_action(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    let action = loaded.keymap.get_action(KeyCode::Char('h'), KeyModifiers::CONTROL);
     assert_eq!(action, Some(Action::Quit));
 }

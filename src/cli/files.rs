@@ -48,10 +48,7 @@ pub fn cmd_list(verbose: bool) -> Result<()> {
     }
 
     // Group files by source
-    let common_files: Vec<_> = resolved_files
-        .iter()
-        .filter(|f| f.source_profile == "common")
-        .collect();
+    let common_files: Vec<_> = resolved_files.iter().filter(|f| f.source_profile == "common").collect();
     let own_files: Vec<_> = resolved_files
         .iter()
         .filter(|f| f.source_profile == *profile_name)
@@ -63,10 +60,7 @@ pub fn cmd_list(verbose: bool) -> Result<()> {
 
     // Print common files first
     if !common_files.is_empty() {
-        println!(
-            "Common files ({}) - shared across all profiles:",
-            common_files.len()
-        );
+        println!("Common files ({}) - shared across all profiles:", common_files.len());
         for file in &common_files {
             print_file_info(
                 &home_dir,
@@ -193,9 +187,7 @@ pub fn cmd_add(path: PathBuf, common: bool, yes: bool) -> Result<()> {
     // Show confirmation prompt unless --yes was passed
     if !yes {
         let destination = if common { "common files" } else { "profile" };
-        println!(
-            "⚠️  Warning: This will move the following path to {destination} and replace it with a symlink:"
-        );
+        println!("⚠️  Warning: This will move the following path to {destination} and replace it with a symlink:");
         println!("   {}", resolved_path.display());
         if common {
             println!("\n   This file will be shared across ALL profiles.");
@@ -205,9 +197,7 @@ pub fn cmd_add(path: PathBuf, common: bool, yes: bool) -> Result<()> {
         io::stdout().flush().context("Failed to flush stdout")?;
 
         let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .context("Failed to read input")?;
+        io::stdin().read_line(&mut input).context("Failed to read input")?;
 
         let trimmed = input.trim().to_lowercase();
         if trimmed != "y" && trimmed != "yes" {
@@ -216,26 +206,13 @@ pub fn cmd_add(path: PathBuf, common: bool, yes: bool) -> Result<()> {
         }
     }
 
-    info!(
-        "CLI: Adding file to sync: {} (common: {})",
-        relative_str, common
-    );
+    info!("CLI: Adding file to sync: {} (common: {})", relative_str, common);
 
     // Use appropriate SyncService method
     let result = if common {
-        SyncService::add_common_file_to_sync(
-            &config,
-            &resolved_path,
-            &relative_str,
-            config.backup_enabled,
-        )?
+        SyncService::add_common_file_to_sync(&config, &resolved_path, &relative_str, config.backup_enabled)?
     } else {
-        SyncService::add_file_to_sync(
-            &config,
-            &resolved_path,
-            &relative_str,
-            config.backup_enabled,
-        )?
+        SyncService::add_file_to_sync(&config, &resolved_path, &relative_str, config.backup_enabled)?
     };
 
     match result {
@@ -243,8 +220,7 @@ pub fn cmd_add(path: PathBuf, common: bool, yes: bool) -> Result<()> {
             // Check if this is a custom file (not in default dotfile candidates)
             if !common && SyncService::is_custom_file(&relative_str) {
                 // Add to config.custom_files if not already there
-                let mut config =
-                    Config::load_or_create(&config_path).context("Failed to load configuration")?;
+                let mut config = Config::load_or_create(&config_path).context("Failed to load configuration")?;
                 if !config.custom_files.contains(&relative_str) {
                     config.custom_files.push(relative_str.clone());
                     config.save(&config_path)?;
@@ -274,16 +250,12 @@ pub fn cmd_remove(path: String, common: bool, yes: bool) -> Result<()> {
     // Show confirmation prompt unless --yes was passed
     if !yes {
         let source = if common { "common files" } else { "profile" };
-        println!(
-            "⚠️  Warning: This will remove {path} from {source} and restore the original file."
-        );
+        println!("⚠️  Warning: This will remove {path} from {source} and restore the original file.");
         print!("   Continue? [y/N]: ");
         io::stdout().flush().context("Failed to flush stdout")?;
 
         let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .context("Failed to read input")?;
+        io::stdin().read_line(&mut input).context("Failed to read input")?;
 
         let trimmed = input.trim().to_lowercase();
         if trimmed != "y" && trimmed != "yes" {
@@ -292,10 +264,7 @@ pub fn cmd_remove(path: String, common: bool, yes: bool) -> Result<()> {
         }
     }
 
-    info!(
-        "CLI: Removing file from sync: {} (common: {})",
-        path, common
-    );
+    info!("CLI: Removing file from sync: {} (common: {})", path, common);
 
     // Use appropriate SyncService method
     let result = if common {
@@ -308,8 +277,7 @@ pub fn cmd_remove(path: String, common: bool, yes: bool) -> Result<()> {
         RemoveFileResult::Success => {
             // Remove from config.custom_files if present
             if !common {
-                let mut config =
-                    Config::load_or_create(&config_path).context("Failed to load configuration")?;
+                let mut config = Config::load_or_create(&config_path).context("Failed to load configuration")?;
                 config.custom_files.retain(|f| f != &path);
                 config.save(&config_path)?;
             }

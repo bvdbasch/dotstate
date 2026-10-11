@@ -20,7 +20,7 @@ pub enum Screen {
 #[derive(Debug, Clone)]
 pub struct GitHubAuthState {
     // Setup mode selection
-    pub setup_mode: SetupMode, // Current setup mode (Choosing, GitHub, Local)
+    pub setup_mode: SetupMode,       // Current setup mode (Choosing, GitHub, Local)
     pub mode_selection_index: usize, // 0 = Create for me (GitHub), 1 = Use own repo (Local)
 
     // GitHub mode fields
@@ -126,9 +126,7 @@ impl Default for GitHubAuthState {
             // GitHub mode fields
             token_input: crate::utils::TextInput::new(),
             repo_name_input: crate::utils::TextInput::with_text(crate::config::default_repo_name()),
-            repo_location_input: crate::utils::TextInput::with_text(
-                default_repo_path.to_string_lossy().to_string(),
-            ),
+            repo_location_input: crate::utils::TextInput::with_text(default_repo_path.to_string_lossy().to_string()),
             is_private: true, // Private by default
             step: GitHubAuthStep::Input,
             error_message: None,
@@ -141,9 +139,7 @@ impl Default for GitHubAuthState {
             setup_data: None,
 
             // Local mode fields
-            local_repo_path_input: crate::utils::TextInput::with_text(
-                default_repo_path.to_string_lossy().to_string(),
-            ),
+            local_repo_path_input: crate::utils::TextInput::with_text(default_repo_path.to_string_lossy().to_string()),
             local_step: LocalSetupStep::Input,
         }
     }
@@ -225,11 +221,11 @@ pub struct PackageManagerState {
     pub add_manager_check_input: crate::utils::TextInput,   // Optional fallback
     pub add_is_custom: bool,                                // Whether in custom mode
     pub add_focused_field: AddPackageField,
-    pub add_editing_index: Option<usize>, // None for add, Some(index) for edit
+    pub add_editing_index: Option<usize>,     // None for add, Some(index) for edit
     pub add_validation_error: Option<String>, // Validation error to display in popup
-    pub newly_added_index: Option<usize>, // Track newly added package to prompt install after check
+    pub newly_added_index: Option<usize>,     // Track newly added package to prompt install after check
     pub available_managers: Vec<crate::utils::profile_manifest::PackageManager>, // OS-filtered list
-    pub manager_list_state: ListState,    // For manager selection
+    pub manager_list_state: ListState,        // For manager selection
     // Delete popup state
     pub delete_confirm_input: crate::utils::TextInput,
     pub delete_index: Option<usize>,
@@ -350,9 +346,7 @@ impl PackageManagerState {
     /// Get the currently active source (selected tab)
     #[must_use]
     pub fn import_active_source(&self) -> Option<crate::utils::DiscoverySource> {
-        self.import_available_sources
-            .get(self.import_active_tab)
-            .copied()
+        self.import_available_sources.get(self.import_active_tab).copied()
     }
 
     /// Get cached packages for current source
@@ -368,9 +362,7 @@ impl PackageManagerState {
     pub fn import_cache_valid(&self, max_age_secs: u64) -> bool {
         self.import_active_source()
             .and_then(|s| self.import_source_cache.get(&s))
-            .is_some_and(|c| {
-                c.discovered_at.elapsed().as_secs() < max_age_secs && !c.packages.is_empty()
-            })
+            .is_some_and(|c| c.discovered_at.elapsed().as_secs() < max_age_secs && !c.packages.is_empty())
     }
 }
 
@@ -396,11 +388,8 @@ pub enum InstallationStep {
 /// Installation status message from background thread
 #[derive(Debug, Clone)]
 pub enum InstallationStatus {
-    Output(String), // Output line
-    Complete {
-        success: bool,
-        error: Option<String>,
-    }, // Installation complete
+    Output(String),                                    // Output line
+    Complete { success: bool, error: Option<String> }, // Installation complete
 }
 
 /// Application UI state

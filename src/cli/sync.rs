@@ -55,10 +55,7 @@ pub fn execute(message: Option<String>) -> Result<()> {
                 .generate_commit_message()
                 .unwrap_or_else(|_| "Update dotfiles".to_string())
         });
-        if !git_mgr
-            .commit_all(&commit_msg)
-            .context("Failed to commit changes")?
-        {
+        if !git_mgr.commit_all(&commit_msg).context("Failed to commit changes")? {
             println!("   Nothing to commit.");
         }
     } else {
@@ -81,17 +78,11 @@ pub fn execute(message: Option<String>) -> Result<()> {
 
     if pulled_count > 0 {
         info!("CLI sync completed: pulled {} commit(s)", pulled_count);
-        println!(
-            "✅ Successfully synced with remote! Pulled {pulled_count} change(s) from remote."
-        );
+        println!("✅ Successfully synced with remote! Pulled {pulled_count} change(s) from remote.");
 
         // Ensure symlinks for any new files pulled from remote
         println!("🔗 Checking for new files to symlink...");
-        match ProfileService::ensure_profile_symlinks(
-            repo_path,
-            &config.active_profile,
-            config.backup_enabled,
-        ) {
+        match ProfileService::ensure_profile_symlinks(repo_path, &config.active_profile, config.backup_enabled) {
             Ok((created, _skipped, errors)) => {
                 if created > 0 {
                     println!("   Created {created} symlink(s) for new files.");
@@ -118,10 +109,7 @@ pub fn execute(message: Option<String>) -> Result<()> {
                     println!("   Created {created} common symlink(s).");
                 }
                 if !errors.is_empty() {
-                    eprintln!(
-                        "⚠️  Warning: {} error(s) creating common symlinks:",
-                        errors.len()
-                    );
+                    eprintln!("⚠️  Warning: {} error(s) creating common symlinks:", errors.len());
                     for error in errors {
                         eprintln!("   {error}");
                     }

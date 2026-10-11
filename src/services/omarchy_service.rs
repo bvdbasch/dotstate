@@ -69,12 +69,7 @@ impl HyprFlavor {
     }
 
     fn block(self) -> String {
-        format!(
-            "\n{}\n{}\n{}\n",
-            self.start_marker(),
-            self.rule(),
-            self.end_marker()
-        )
+        format!("\n{}\n{}\n{}\n", self.start_marker(), self.rule(), self.end_marker())
     }
 }
 
@@ -150,12 +145,11 @@ impl OmarchyService {
         write_file(&paths.desktop_entry, desktop_entry(&paths.icon).as_bytes())?;
 
         let hypr_config = paths.hypr_config(flavor);
-        let content = fs::read_to_string(&hypr_config)
-            .with_context(|| format!("Failed to read {}", hypr_config.display()))?;
+        let content =
+            fs::read_to_string(&hypr_config).with_context(|| format!("Failed to read {}", hypr_config.display()))?;
         let updated = upsert_block(&content, flavor);
         if updated != content {
-            fs::write(&hypr_config, updated)
-                .with_context(|| format!("Failed to write {}", hypr_config.display()))?;
+            fs::write(&hypr_config, updated).with_context(|| format!("Failed to write {}", hypr_config.display()))?;
         }
 
         // After a 3.x -> Quattro upgrade, drop the rule we left in the old .conf.
@@ -176,8 +170,7 @@ impl OmarchyService {
         let mut removed = false;
         for file in [&paths.desktop_entry, &paths.icon] {
             if file.exists() {
-                fs::remove_file(file)
-                    .with_context(|| format!("Failed to remove {}", file.display()))?;
+                fs::remove_file(file).with_context(|| format!("Failed to remove {}", file.display()))?;
                 removed = true;
             }
         }
@@ -269,8 +262,7 @@ fn reload_hyprland() -> bool {
 }
 
 fn on_path(binary: &str) -> bool {
-    std::env::var_os("PATH")
-        .is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(binary).is_file()))
+    std::env::var_os("PATH").is_some_and(|paths| std::env::split_paths(&paths).any(|dir| dir.join(binary).is_file()))
 }
 
 #[cfg(test)]
@@ -328,16 +320,10 @@ mod tests {
 
         fs::create_dir_all(&paths.hypr_dir).unwrap();
         fs::write(paths.hypr_config(HyprFlavor::Conf), "").unwrap();
-        assert_eq!(
-            OmarchyService::detect_flavor(&paths).unwrap(),
-            HyprFlavor::Conf
-        );
+        assert_eq!(OmarchyService::detect_flavor(&paths).unwrap(), HyprFlavor::Conf);
 
         fs::write(paths.hypr_config(HyprFlavor::Lua), "").unwrap();
-        assert_eq!(
-            OmarchyService::detect_flavor(&paths).unwrap(),
-            HyprFlavor::Lua
-        );
+        assert_eq!(OmarchyService::detect_flavor(&paths).unwrap(), HyprFlavor::Lua);
     }
 
     #[test]

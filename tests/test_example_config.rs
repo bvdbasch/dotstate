@@ -45,18 +45,12 @@ action = "help"
     assert_eq!(config.keymap.preset, KeymapPreset::Vim);
 
     // Verify overrides work
-    let action = config
-        .keymap
-        .get_action(KeyCode::Char('x'), KeyModifiers::NONE);
+    let action = config.keymap.get_action(KeyCode::Char('x'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::Quit));
 
-    let action = config
-        .keymap
-        .get_action(KeyCode::Char('w'), KeyModifiers::NONE);
+    let action = config.keymap.get_action(KeyCode::Char('w'), KeyModifiers::NONE);
     assert_eq!(action, Some(Action::MoveUp));
 
-    let action = config
-        .keymap
-        .get_action(KeyCode::Char('h'), KeyModifiers::CONTROL);
+    let action = config.keymap.get_action(KeyCode::Char('h'), KeyModifiers::CONTROL);
     assert_eq!(action, Some(Action::Help));
 }

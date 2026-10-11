@@ -42,10 +42,7 @@ pub fn is_safe_to_add(path: &Path, repo_path: &Path) -> (bool, Option<String>) {
 
     // Check if it's the storage repo itself
     if path == repo_path {
-        return (
-            false,
-            Some("Cannot add storage repository folder".to_string()),
-        );
+        return (false, Some("Cannot add storage repository folder".to_string()));
     }
 
     // Check if it's a parent of the storage repo
@@ -147,7 +144,6 @@ pub fn is_dotfile(path: &Path) -> bool {
 pub fn get_repository_path() -> anyhow::Result<PathBuf> {
     use crate::config::Config;
     let config_path = get_config_path();
-    let config = Config::load_or_create(&config_path)
-        .map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
+    let config = Config::load_or_create(&config_path).map_err(|e| anyhow::anyhow!("Failed to load config: {e}"))?;
     Ok(config.repo_path)
 }

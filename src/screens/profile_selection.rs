@@ -90,9 +90,7 @@ impl ProfileSelectionScreen {
 
         let footer_text = format!(
             "{}: Cancel & Return to Main Menu",
-            config
-                .keymap
-                .get_key_display_for_action(crate::keymap::Action::Cancel)
+            config.keymap.get_key_display_for_action(crate::keymap::Action::Cancel)
         );
 
         let dialog = Dialog::new("Warning", &warning_text)
@@ -108,12 +106,8 @@ impl ProfileSelectionScreen {
 
         let footer_text = format!(
             "{}: Create  |  {}: Cancel",
-            config
-                .keymap
-                .get_key_display_for_action(crate::keymap::Action::Confirm),
-            config
-                .keymap
-                .get_key_display_for_action(crate::keymap::Action::Cancel)
+            config.keymap.get_key_display_for_action(crate::keymap::Action::Confirm),
+            config.keymap.get_key_display_for_action(crate::keymap::Action::Cancel)
         );
 
         let Some(result) = Popup::new()
@@ -180,8 +174,7 @@ impl ProfileSelectionScreen {
 
         // Add "Create New Profile" option
         items.push(
-            ListItem::new(format!("  {} Create New Profile", icons.create()))
-                .style(Style::default().fg(Color::Cyan)),
+            ListItem::new(format!("  {} Create New Profile", icons.create())).style(Style::default().fg(Color::Cyan)),
         );
 
         let list = List::new(items)
@@ -191,11 +184,7 @@ impl ProfileSelectionScreen {
                     .borders(Borders::ALL)
                     .border_type(theme().border_type(false)),
             )
-            .highlight_style(
-                Style::default()
-                    .add_modifier(Modifier::BOLD)
-                    .fg(Color::Cyan),
-            )
+            .highlight_style(Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan))
             .highlight_symbol(LIST_HIGHLIGHT_SYMBOL);
 
         frame.render_stateful_widget(list, content_area, &mut self.state.list_state);
@@ -204,12 +193,8 @@ impl ProfileSelectionScreen {
         let footer_text = format!(
             "{}: Navigate | {}: Activate/Create | {}: Cancel",
             config.keymap.navigation_display(),
-            config
-                .keymap
-                .get_key_display_for_action(crate::keymap::Action::Confirm),
-            config
-                .keymap
-                .get_key_display_for_action(crate::keymap::Action::Cancel)
+            config.keymap.get_key_display_for_action(crate::keymap::Action::Confirm),
+            config.keymap.get_key_display_for_action(crate::keymap::Action::Cancel)
         );
         let _ = Footer::render(frame, footer_area, &footer_text);
     }
@@ -252,9 +237,7 @@ impl ProfileSelectionScreen {
                     }
                 }
             }
-            ProfileSelectionAction::ActivateProfile { name } => {
-                self.activate_profile(config, config_path, &name)
-            }
+            ProfileSelectionAction::ActivateProfile { name } => self.activate_profile(config, config_path, &name),
         }
     }
 
@@ -291,11 +274,7 @@ impl ProfileSelectionScreen {
         }
 
         // Call ProfileService to activate the profile (create symlinks)
-        match ProfileService::activate_profile(
-            &config.repo_path,
-            profile_name,
-            config.backup_enabled,
-        ) {
+        match ProfileService::activate_profile(&config.repo_path, profile_name, config.backup_enabled) {
             Ok(result) => {
                 info!(
                     "Activated profile '{}' with {} files",
@@ -390,9 +369,7 @@ impl Screen for ProfileSelectionScreen {
                     }
                     MouseEventKind::ScrollUp => {
                         if let Some(area) = self.list_area {
-                            if area
-                                .contains(ratatui::layout::Position::new(mouse.column, mouse.row))
-                            {
+                            if area.contains(ratatui::layout::Position::new(mouse.column, mouse.row)) {
                                 if let Some(current) = self.state.list_state.selected() {
                                     let new = current.saturating_sub(3);
                                     self.state.list_state.select(Some(new));
@@ -402,9 +379,7 @@ impl Screen for ProfileSelectionScreen {
                     }
                     MouseEventKind::ScrollDown => {
                         if let Some(area) = self.list_area {
-                            if area
-                                .contains(ratatui::layout::Position::new(mouse.column, mouse.row))
-                            {
+                            if area.contains(ratatui::layout::Position::new(mouse.column, mouse.row)) {
                                 if let Some(current) = self.state.list_state.selected() {
                                     let max = self.state.profiles.len(); // includes "Create New"
                                     let new = (current + 3).min(max);
@@ -447,13 +422,10 @@ impl Screen for ProfileSelectionScreen {
                 if self.state.show_create_popup {
                     match action {
                         Action::Confirm => {
-                            let profile_name =
-                                self.state.create_name_input.text_trimmed().to_string();
+                            let profile_name = self.state.create_name_input.text_trimmed().to_string();
                             if !profile_name.is_empty() {
                                 self.state.show_create_popup = false;
-                                return Ok(ScreenAction::CreateAndActivateProfile {
-                                    name: profile_name,
-                                });
+                                return Ok(ScreenAction::CreateAndActivateProfile { name: profile_name });
                             }
                             return Ok(ScreenAction::None);
                         }
@@ -478,14 +450,10 @@ impl Screen for ProfileSelectionScreen {
                                 self.state.list_state.select(Some(current - 1));
                             } else {
                                 // Wrap to bottom (including create option)
-                                self.state
-                                    .list_state
-                                    .select(Some(self.state.profiles.len()));
+                                self.state.list_state.select(Some(self.state.profiles.len()));
                             }
                         } else if !self.state.profiles.is_empty() {
-                            self.state
-                                .list_state
-                                .select(Some(self.state.profiles.len()));
+                            self.state.list_state.select(Some(self.state.profiles.len()));
                         }
                     }
                     Action::MoveDown => {

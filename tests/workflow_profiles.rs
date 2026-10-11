@@ -312,10 +312,7 @@ fn switch_profile_replaces_symlinks() -> Result<()> {
     env.assert_is_symlink(".shared-name");
 
     // Content changed for shared-name
-    assert_eq!(
-        env.home_file_content(".shared-name"),
-        Some("work version".to_string())
-    );
+    assert_eq!(env.home_file_content(".shared-name"), Some("work version".to_string()));
 
     env.assert_active_profile("work");
 
@@ -395,10 +392,7 @@ fn switch_to_same_profile_is_noop() -> Result<()> {
     let new_config = env.load_config()?;
 
     assert_eq!(original_config.active_profile, new_config.active_profile);
-    assert_eq!(
-        original_tracking.symlinks.len(),
-        new_tracking.symlinks.len()
-    );
+    assert_eq!(original_tracking.symlinks.len(), new_tracking.symlinks.len());
     env.assert_is_symlink(".zshrc");
 
     Ok(())
@@ -660,11 +654,7 @@ fn inheritance_resolve_files_merges_parent_and_child() -> Result<()> {
 
 #[test]
 fn inheritance_chain_validation_detects_cycle() -> Result<()> {
-    let env = TestEnv::new()
-        .with_profile("a")
-        .with_profile("b")
-        .with_git()
-        .build()?;
+    let env = TestEnv::new().with_profile("a").with_profile("b").with_git().build()?;
 
     let mut manifest = env.load_manifest()?;
     if let Some(a) = manifest.profiles.iter_mut().find(|p| p.name == "a") {
@@ -737,10 +727,7 @@ fn inheritance_inherits_field_roundtrips_through_toml() -> Result<()> {
 
 #[test]
 fn inheritance_profile_without_inherits_is_backward_compatible() -> Result<()> {
-    let env = TestEnv::new()
-        .with_profile("standalone")
-        .with_git()
-        .build()?;
+    let env = TestEnv::new().with_profile("standalone").with_git().build()?;
 
     // Set up files
     let profile_path = env.profile_path("standalone");
@@ -752,11 +739,7 @@ fn inheritance_profile_without_inherits_is_backward_compatible() -> Result<()> {
 
     let mut manifest = env.load_manifest()?;
     manifest.common.synced_files = vec![".gitconfig".to_string()];
-    if let Some(p) = manifest
-        .profiles
-        .iter_mut()
-        .find(|p| p.name == "standalone")
-    {
+    if let Some(p) = manifest.profiles.iter_mut().find(|p| p.name == "standalone") {
         p.synced_files = vec![".zshrc".to_string()];
     }
     manifest.save(&env.repo_path)?;

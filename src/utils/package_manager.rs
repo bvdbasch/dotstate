@@ -69,10 +69,7 @@ impl PackageManagerImpl {
         {
             // On Windows, .exe/.bat/.cmd files are considered executable
             if let Some(ext) = path.extension() {
-                return matches!(
-                    ext.to_str(),
-                    Some("exe") | Some("bat") | Some("cmd") | Some("com")
-                );
+                return matches!(ext.to_str(), Some("exe") | Some("bat") | Some("cmd") | Some("com"));
             }
         }
 
@@ -113,10 +110,7 @@ impl PackageManagerImpl {
             }
             PackageManager::Apt => {
                 let mut cmd = Command::new("sudo");
-                cmd.arg("apt-get")
-                    .arg("install")
-                    .arg("-y")
-                    .arg(package_name);
+                cmd.arg("apt-get").arg("install").arg("-y").arg(package_name);
                 cmd
             }
             PackageManager::Yum => {
@@ -131,10 +125,7 @@ impl PackageManagerImpl {
             }
             PackageManager::Pacman => {
                 let mut cmd = Command::new("sudo");
-                cmd.arg("pacman")
-                    .arg("-S")
-                    .arg("--noconfirm")
-                    .arg(package_name);
+                cmd.arg("pacman").arg("-S").arg("--noconfirm").arg(package_name);
                 cmd
             }
             PackageManager::Snap => {
@@ -202,10 +193,7 @@ impl PackageManagerImpl {
     /// Build manager-native existence check command (fallback)
     /// Used when `binary_name` check fails or `binary_name` is missing
     #[must_use]
-    pub fn build_manager_check_command(
-        manager: &PackageManager,
-        package_name: &str,
-    ) -> Option<Command> {
+    pub fn build_manager_check_command(manager: &PackageManager, package_name: &str) -> Option<Command> {
         match manager {
             PackageManager::Brew => {
                 // Use `brew list <name>` which works for both formulas and casks

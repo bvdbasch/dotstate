@@ -20,8 +20,8 @@ use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyEventKind, MouseButton, MouseEventKind};
 use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::widgets::{
-    Block, Borders, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation,
-    ScrollbarState, StatefulWidget,
+    Block, Borders, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    StatefulWidget,
 };
 use ratatui::Frame;
 use std::path::{Path, PathBuf};
@@ -48,10 +48,7 @@ pub enum FileBrowserResult {
     /// User cancelled/closed the browser
     Cancelled,
     /// User selected a file or folder to add
-    Selected {
-        full_path: PathBuf,
-        relative_path: String,
-    },
+    Selected { full_path: PathBuf, relative_path: String },
     /// Directory changed, entries need refresh
     RefreshNeeded,
 }
@@ -225,11 +222,7 @@ impl FileBrowser {
     }
 
     /// Handle path input field events
-    fn handle_path_input(
-        &mut self,
-        key_code: KeyCode,
-        _config: &Config,
-    ) -> Result<FileBrowserResult> {
+    fn handle_path_input(&mut self, key_code: KeyCode, _config: &Config) -> Result<FileBrowserResult> {
         match key_code {
             KeyCode::Char(c) => {
                 self.path_input.insert_char(c);
@@ -289,14 +282,8 @@ impl FileBrowser {
     }
 
     /// Handle list navigation events
-    fn handle_list_navigation(
-        &mut self,
-        key_code: KeyCode,
-        config: &Config,
-    ) -> Result<FileBrowserResult> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+    fn handle_list_navigation(&mut self, key_code: KeyCode, config: &Config) -> Result<FileBrowserResult> {
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
 
         if let Some(action) = action {
             match action {
@@ -370,8 +357,7 @@ impl FileBrowser {
 
                     // Validate
                     let repo_path = &config.repo_path;
-                    let (is_safe, _reason) =
-                        crate::utils::is_safe_to_add(&current_folder, repo_path);
+                    let (is_safe, _reason) = crate::utils::is_safe_to_add(&current_folder, repo_path);
                     if !is_safe {
                         // Return error via status message (caller handles this)
                         return Ok(FileBrowserResult::None); // TODO: Add error result variant
@@ -398,8 +384,7 @@ impl FileBrowser {
                     if full_path.is_dir() {
                         // Navigate into directory
                         self.current_path = full_path.clone();
-                        self.path_input
-                            .set_text(full_path.to_string_lossy().to_string());
+                        self.path_input.set_text(full_path.to_string_lossy().to_string());
                         self.list_state.select(Some(0));
                         self.refresh_entries();
                         return Ok(FileBrowserResult::RefreshNeeded);
@@ -425,14 +410,8 @@ impl FileBrowser {
     }
 
     /// Handle preview pane navigation
-    fn handle_preview_navigation(
-        &mut self,
-        key_code: KeyCode,
-        config: &Config,
-    ) -> Result<FileBrowserResult> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+    fn handle_preview_navigation(&mut self, key_code: KeyCode, config: &Config) -> Result<FileBrowserResult> {
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
 
         if let Some(action) = action {
             match action {
@@ -664,10 +643,9 @@ impl FileBrowser {
                 } else if path == Path::new(".") {
                     ". (add this folder)".to_string()
                 } else {
-                    path.file_name().and_then(|n| n.to_str()).map_or_else(
-                        || path.to_string_lossy().to_string(),
-                        std::string::ToString::to_string,
-                    )
+                    path.file_name()
+                        .and_then(|n| n.to_str())
+                        .map_or_else(|| path.to_string_lossy().to_string(), std::string::ToString::to_string)
                 };
 
                 let prefix = if is_dir {

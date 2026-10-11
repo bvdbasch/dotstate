@@ -68,10 +68,7 @@ fn add_file_creates_symlink_and_tracks() -> Result<()> {
     env.assert_file_in_profile("default", ".zshrc");
 
     // Verify content is preserved
-    assert_eq!(
-        env.home_file_content(".zshrc"),
-        Some("# my zshrc config".to_string())
-    );
+    assert_eq!(env.home_file_content(".zshrc"), Some("# my zshrc config".to_string()));
 
     Ok(())
 }
@@ -107,10 +104,7 @@ fn add_file_handles_nested_directory_structure() -> Result<()> {
     let env = TestEnv::new()
         .with_profile("default")
         .with_activated_profile("default")
-        .with_home_file(
-            ".config/app/settings/config.toml",
-            "[settings]\nkey = \"value\"",
-        )
+        .with_home_file(".config/app/settings/config.toml", "[settings]\nkey = \"value\"")
         .build()?;
 
     // Verify nested file exists
@@ -138,9 +132,7 @@ fn add_file_handles_nested_directory_structure() -> Result<()> {
 
     // Then: directory structure is preserved
     env.assert_is_symlink(".config/app/settings/config.toml");
-    assert!(env
-        .repo_file_path("default/.config/app/settings/config.toml")
-        .exists());
+    assert!(env.repo_file_path("default/.config/app/settings/config.toml").exists());
 
     Ok(())
 }
@@ -221,10 +213,7 @@ fn remove_file_restores_original_and_untracks() -> Result<()> {
     env.assert_file_not_in_profile("default", ".zshrc");
 
     // Content preserved
-    assert_eq!(
-        env.home_file_content(".zshrc"),
-        Some("# original content".to_string())
-    );
+    assert_eq!(env.home_file_content(".zshrc"), Some("# original content".to_string()));
 
     Ok(())
 }

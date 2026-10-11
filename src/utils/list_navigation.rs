@@ -86,11 +86,7 @@ impl ListStateExt for ListState {
             return;
         }
         let current = self.selected().unwrap_or(0);
-        let new_index = if current == 0 {
-            total_items - 1
-        } else {
-            current - 1
-        };
+        let new_index = if current == 0 { total_items - 1 } else { current - 1 };
         self.select(Some(new_index));
     }
 
@@ -99,11 +95,7 @@ impl ListStateExt for ListState {
             return;
         }
         let current = self.selected().unwrap_or(0);
-        let new_index = if current >= total_items - 1 {
-            0
-        } else {
-            current + 1
-        };
+        let new_index = if current >= total_items - 1 { 0 } else { current + 1 };
         self.select(Some(new_index));
     }
 

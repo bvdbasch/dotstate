@@ -8,16 +8,13 @@ use crate::components::header::Header;
 use crate::screens::screen_trait::{RenderContext, Screen, ScreenAction, ScreenContext};
 use crate::styles::{theme as ui_theme, LIST_HIGHLIGHT_SYMBOL};
 use crate::ui::{Screen as ScreenId, SyncWithRemoteState};
-use crate::utils::{
-    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style,
-};
+use crate::utils::{create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style};
 use anyhow::Result;
 use crossterm::event::Event;
 use ratatui::layout::{Alignment, Position, Rect};
 use ratatui::prelude::*;
 use ratatui::widgets::{
-    Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
-    StatefulWidget, Wrap,
+    Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, StatefulWidget, Wrap,
 };
 use ratatui::Frame;
 
@@ -132,12 +129,7 @@ impl SyncWithRemoteScreen {
     }
 
     /// Render the result popup
-    fn render_result_popup(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &crate::config::Config,
-    ) -> Result<()> {
+    fn render_result_popup(&self, frame: &mut Frame, area: Rect, config: &crate::config::Config) -> Result<()> {
         use crate::widgets::{Dialog, DialogVariant};
 
         let result_text = self
@@ -147,31 +139,20 @@ impl SyncWithRemoteScreen {
             .unwrap_or("Unknown result")
             .to_string();
 
-        let is_error = result_text.to_lowercase().contains("error")
-            || result_text.to_lowercase().contains("failed");
+        let is_error = result_text.to_lowercase().contains("error") || result_text.to_lowercase().contains("failed");
 
         let k = |a| config.keymap.get_key_display_for_action(a);
-        let footer_text = format!(
-            "↑↓/jk: Scroll  {}: Close",
-            k(crate::keymap::Action::Confirm)
-        );
+        let footer_text = format!("↑↓/jk: Scroll  {}: Close", k(crate::keymap::Action::Confirm));
 
-        let dialog = Dialog::new(
-            if is_error {
-                "Sync Error"
+        let dialog = Dialog::new(if is_error { "Sync Error" } else { "Sync Result" }, &result_text)
+            .height(50)
+            .variant(if is_error {
+                DialogVariant::Error
             } else {
-                "Sync Result"
-            },
-            &result_text,
-        )
-        .height(50)
-        .variant(if is_error {
-            DialogVariant::Error
-        } else {
-            DialogVariant::Default
-        })
-        .scroll(self.state.result_scroll)
-        .footer(&footer_text);
+                DialogVariant::Default
+            })
+            .scroll(self.state.result_scroll)
+            .footer(&footer_text);
         frame.render_widget(dialog, area);
 
         Ok(())
@@ -180,11 +161,7 @@ impl SyncWithRemoteScreen {
     /// Render the syncing progress indicator
     fn render_progress(&self, frame: &mut Frame, content_chunk: Rect) {
         let t = ui_theme();
-        let progress_text = self
-            .state
-            .sync_progress
-            .as_deref()
-            .unwrap_or("Processing...");
+        let progress_text = self.state.sync_progress.as_deref().unwrap_or("Processing...");
         let progress_para = Paragraph::new(progress_text)
             .style(Style::default().fg(t.warning))
             .alignment(Alignment::Center)
@@ -202,12 +179,7 @@ impl SyncWithRemoteScreen {
     }
 
     /// Render the changed files list and diff preview
-    fn render_changes_list(
-        &mut self,
-        frame: &mut Frame,
-        content_chunk: Rect,
-        ctx: &RenderContext,
-    ) -> Result<()> {
+    fn render_changes_list(&mut self, frame: &mut Frame, content_chunk: Rect, ctx: &RenderContext) -> Result<()> {
         let t = ui_theme();
 
         let has_remote_changes = if let Some(status) = &self.state.git_status {
@@ -217,18 +189,17 @@ impl SyncWithRemoteScreen {
         };
 
         if self.state.changed_files.is_empty() && !has_remote_changes {
-            let empty_message = Paragraph::new(
-                "No changes to sync.\n\nAll files are up to date with the remote repository.",
-            )
-            .wrap(Wrap { trim: true })
-            .block(
-                Block::default()
-                    .borders(Borders::ALL)
-                    .border_type(ui_theme().border_type(false))
-                    .title(" No Changes ")
-                    .title_alignment(Alignment::Center)
-                    .padding(ratatui::widgets::Padding::new(2, 2, 2, 2)),
-            );
+            let empty_message =
+                Paragraph::new("No changes to sync.\n\nAll files are up to date with the remote repository.")
+                    .wrap(Wrap { trim: true })
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .border_type(ui_theme().border_type(false))
+                            .title(" No Changes ")
+                            .title_alignment(Alignment::Center)
+                            .padding(ratatui::widgets::Padding::new(2, 2, 2, 2)),
+                    );
             frame.render_widget(empty_message, content_chunk);
             return Ok(());
         }
@@ -238,16 +209,10 @@ impl SyncWithRemoteScreen {
             let status = self.state.git_status.as_ref().unwrap();
             let mut msg = String::from("Ready to Sync:\n\n");
             if status.behind > 0 {
-                msg.push_str(&format!(
-                    "• {} commit(s) behind remote (will pull)\n",
-                    status.behind
-                ));
+                msg.push_str(&format!("• {} commit(s) behind remote (will pull)\n", status.behind));
             }
             if status.ahead > 0 {
-                msg.push_str(&format!(
-                    "• {} commit(s) ahead of remote (will push)\n",
-                    status.ahead
-                ));
+                msg.push_str(&format!("• {} commit(s) ahead of remote (will push)\n", status.ahead));
             }
 
             let status_para = Paragraph::new(msg)
@@ -315,22 +280,14 @@ impl SyncWithRemoteScreen {
                     .borders(Borders::ALL)
                     .border_style(list_border_style)
                     .border_type(ui_theme().border_type(list_focused))
-                    .title(format!(
-                        " Changed Files ({}) ",
-                        self.state.changed_files.len()
-                    ))
+                    .title(format!(" Changed Files ({}) ", self.state.changed_files.len()))
                     .title_alignment(Alignment::Center)
                     .padding(ratatui::widgets::Padding::new(1, 1, 1, 1)),
             )
             .highlight_style(t.highlight_style())
             .highlight_symbol(LIST_HIGHLIGHT_SYMBOL);
 
-        StatefulWidget::render(
-            list,
-            list_area,
-            frame.buffer_mut(),
-            &mut self.state.list_state,
-        );
+        StatefulWidget::render(list, list_area, frame.buffer_mut(), &mut self.state.list_state);
 
         // Render scrollbar
         frame.render_stateful_widget(
@@ -400,12 +357,7 @@ impl Screen for SyncWithRemoteScreen {
         } else {
             "Review changes before syncing with remote"
         };
-        let _ = Header::render(
-            frame,
-            header_chunk,
-            "DotState - Sync with Remote",
-            description,
-        )?;
+        let _ = Header::render(frame, header_chunk, "DotState - Sync with Remote", description)?;
 
         // Always render main content first
         if self.state.is_syncing {
@@ -467,20 +419,16 @@ impl Screen for SyncWithRemoteScreen {
                                 return Ok(ScreenAction::Navigate(ScreenId::MainMenu));
                             }
                             Action::MoveUp | Action::ScrollUp => {
-                                self.state.result_scroll =
-                                    self.state.result_scroll.saturating_sub(1);
+                                self.state.result_scroll = self.state.result_scroll.saturating_sub(1);
                             }
                             Action::MoveDown | Action::ScrollDown => {
-                                self.state.result_scroll =
-                                    self.state.result_scroll.saturating_add(1);
+                                self.state.result_scroll = self.state.result_scroll.saturating_add(1);
                             }
                             Action::PageUp => {
-                                self.state.result_scroll =
-                                    self.state.result_scroll.saturating_sub(10);
+                                self.state.result_scroll = self.state.result_scroll.saturating_sub(10);
                             }
                             Action::PageDown => {
-                                self.state.result_scroll =
-                                    self.state.result_scroll.saturating_add(10);
+                                self.state.result_scroll = self.state.result_scroll.saturating_add(10);
                             }
                             Action::GoToTop => {
                                 self.state.result_scroll = 0;
@@ -528,9 +476,7 @@ impl Screen for SyncWithRemoteScreen {
                             } else {
                                 false
                             };
-                            if !self.state.is_syncing
-                                && (!self.state.changed_files.is_empty() || has_remote_changes)
-                            {
+                            if !self.state.is_syncing && (!self.state.changed_files.is_empty() || has_remote_changes) {
                                 self.start_sync(ctx)?;
                             }
                             return Ok(ScreenAction::None);
@@ -573,8 +519,8 @@ impl Screen for SyncWithRemoteScreen {
                             }
                             Action::PageDown => {
                                 if let Some(current) = self.state.list_state.selected() {
-                                    let new_index = (current + 10)
-                                        .min(self.state.changed_files.len().saturating_sub(1));
+                                    let new_index =
+                                        (current + 10).min(self.state.changed_files.len().saturating_sub(1));
                                     self.state.list_state.select(Some(new_index));
                                     self.update_diff_preview(ctx);
                                 }
@@ -591,20 +537,16 @@ impl Screen for SyncWithRemoteScreen {
                         },
                         SyncFocus::Preview => match action {
                             Action::MoveUp | Action::ScrollUp => {
-                                self.state.preview_scroll =
-                                    self.state.preview_scroll.saturating_sub(1);
+                                self.state.preview_scroll = self.state.preview_scroll.saturating_sub(1);
                             }
                             Action::MoveDown | Action::ScrollDown => {
-                                self.state.preview_scroll =
-                                    self.state.preview_scroll.saturating_add(1);
+                                self.state.preview_scroll = self.state.preview_scroll.saturating_add(1);
                             }
                             Action::PageUp => {
-                                self.state.preview_scroll =
-                                    self.state.preview_scroll.saturating_sub(20);
+                                self.state.preview_scroll = self.state.preview_scroll.saturating_sub(20);
                             }
                             Action::PageDown => {
-                                self.state.preview_scroll =
-                                    self.state.preview_scroll.saturating_add(20);
+                                self.state.preview_scroll = self.state.preview_scroll.saturating_add(20);
                             }
                             Action::GoToTop => {
                                 self.state.preview_scroll = 0;
@@ -613,8 +555,7 @@ impl Screen for SyncWithRemoteScreen {
                                 if let Some(content) = &self.state.diff_content {
                                     let total_lines = content.lines().count();
                                     let estimated_visible = 20;
-                                    self.state.preview_scroll =
-                                        total_lines.saturating_sub(estimated_visible);
+                                    self.state.preview_scroll = total_lines.saturating_sub(estimated_visible);
                                 } else {
                                     self.state.preview_scroll = 10000;
                                 }
@@ -653,8 +594,7 @@ impl Screen for SyncWithRemoteScreen {
                         }
                         if let Some(area) = self.preview_pane_area {
                             if area.contains(pos) {
-                                self.state.preview_scroll =
-                                    self.state.preview_scroll.saturating_add(3);
+                                self.state.preview_scroll = self.state.preview_scroll.saturating_add(3);
                                 return Ok(ScreenAction::None);
                             }
                         }
@@ -669,8 +609,7 @@ impl Screen for SyncWithRemoteScreen {
                         }
                         if let Some(area) = self.preview_pane_area {
                             if area.contains(pos) {
-                                self.state.preview_scroll =
-                                    self.state.preview_scroll.saturating_sub(3);
+                                self.state.preview_scroll = self.state.preview_scroll.saturating_sub(3);
                                 return Ok(ScreenAction::None);
                             }
                         }

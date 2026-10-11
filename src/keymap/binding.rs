@@ -64,9 +64,7 @@ impl KeyBinding {
     /// Get the description (custom or from action)
     #[must_use]
     pub fn get_description(&self) -> &str {
-        self.description
-            .as_deref()
-            .unwrap_or_else(|| self.action.description())
+        self.description.as_deref().unwrap_or_else(|| self.action.description())
     }
 }
 
@@ -249,10 +247,7 @@ mod tests {
     fn test_parse_multi_modifier() {
         let parsed = parse_key_string("ctrl+shift+n").unwrap();
         assert_eq!(parsed.code, KeyCode::Char('n'));
-        assert_eq!(
-            parsed.modifiers,
-            KeyModifiers::CONTROL | KeyModifiers::SHIFT
-        );
+        assert_eq!(parsed.modifiers, KeyModifiers::CONTROL | KeyModifiers::SHIFT);
     }
 
     #[test]
@@ -261,10 +256,7 @@ mod tests {
         assert_eq!(parse_key_string("esc").unwrap().code, KeyCode::Esc);
         assert_eq!(parse_key_string("space").unwrap().code, KeyCode::Char(' '));
         assert_eq!(parse_key_string("tab").unwrap().code, KeyCode::Tab);
-        assert_eq!(
-            parse_key_string("backspace").unwrap().code,
-            KeyCode::Backspace
-        );
+        assert_eq!(parse_key_string("backspace").unwrap().code, KeyCode::Backspace);
     }
 
     #[test]

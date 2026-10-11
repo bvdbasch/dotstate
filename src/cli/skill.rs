@@ -19,10 +19,7 @@ pub enum InstallOutcome {
 
 /// Where the skill is installed, relative to the home directory.
 fn skill_path(home: &Path) -> PathBuf {
-    home.join(".claude")
-        .join("skills")
-        .join("dotstate")
-        .join("SKILL.md")
+    home.join(".claude").join("skills").join("dotstate").join("SKILL.md")
 }
 
 /// Write the skill under `home`. Re-running replaces the file only if its content changed.
@@ -77,22 +74,13 @@ mod tests {
         let home = TempDir::new().unwrap();
         let path = skill_path(home.path());
 
-        assert_eq!(
-            install(home.path()).unwrap(),
-            InstallOutcome::Installed(path.clone())
-        );
+        assert_eq!(install(home.path()).unwrap(), InstallOutcome::Installed(path.clone()));
         assert_eq!(fs::read_to_string(&path).unwrap(), SKILL);
 
-        assert_eq!(
-            install(home.path()).unwrap(),
-            InstallOutcome::UpToDate(path.clone())
-        );
+        assert_eq!(install(home.path()).unwrap(), InstallOutcome::UpToDate(path.clone()));
 
         fs::write(&path, "old").unwrap();
-        assert_eq!(
-            install(home.path()).unwrap(),
-            InstallOutcome::Updated(path.clone())
-        );
+        assert_eq!(install(home.path()).unwrap(), InstallOutcome::Updated(path.clone()));
         assert_eq!(fs::read_to_string(&path).unwrap(), SKILL);
     }
 }

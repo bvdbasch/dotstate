@@ -6,15 +6,13 @@ use crate::screens::{RenderContext, Screen, ScreenAction, ScreenContext};
 use crate::services::{PackageCreationParams, PackageService};
 use crate::styles::{theme, LIST_HIGHLIGHT_SYMBOL};
 use crate::ui::{
-    AddPackageField, InstallationStatus, InstallationStep, PackageManagerState, PackagePopupType,
-    PackageStatus, Screen as ScreenEnum,
+    AddPackageField, InstallationStatus, InstallationStep, PackageManagerState, PackagePopupType, PackageStatus,
+    Screen as ScreenEnum,
 };
 use crate::utils::package_installer::PackageInstaller;
 use crate::utils::package_manager::PackageManagerImpl;
 use crate::utils::profile_manifest::{Package, PackageManager};
-use crate::utils::{
-    create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions,
-};
+use crate::utils::{create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions};
 use crate::widgets::{TextInputWidget, TextInputWidgetExt};
 use anyhow::Result;
 use crossterm::event::{Event, KeyCode, KeyModifiers, MouseButton, MouseEventKind};
@@ -132,8 +130,7 @@ impl ManagePackagesScreen {
             };
             state.installation_output.clear();
             state.installation_output_scroll = 0;
-            state.installation_delay_until =
-                Some(std::time::Instant::now() + Duration::from_millis(100));
+            state.installation_delay_until = Some(std::time::Instant::now() + Duration::from_millis(100));
         }
     }
 
@@ -242,10 +239,7 @@ impl ManagePackagesScreen {
             let checked_index = index;
             state.checking_index = None;
 
-            info!(
-                "Finished checking selected package at index {}",
-                checked_index
-            );
+            info!("Finished checking selected package at index {}", checked_index);
             return Ok(());
         }
 
@@ -260,8 +254,7 @@ impl ManagePackagesScreen {
             state.checking_index = Some(index);
 
             // Schedule delay to let UI render the Loading icon for this index before we check it
-            state.checking_delay_until =
-                Some(std::time::Instant::now() + Duration::from_millis(10));
+            state.checking_delay_until = Some(std::time::Instant::now() + Duration::from_millis(10));
             return Ok(());
         }
 
@@ -353,13 +346,10 @@ impl ManagePackagesScreen {
                                     if success {
                                         info!("Successfully installed {}", package_name);
                                         installed.push(*package_index);
-                                        state
-                                            .installation_output
-                                            .push(format!("✅ Installed {package_name}"));
+                                        state.installation_output.push(format!("✅ Installed {package_name}"));
                                         // Update status in list
                                         if *package_index < state.package_statuses.len() {
-                                            state.package_statuses[*package_index] =
-                                                PackageStatus::Installed;
+                                            state.package_statuses[*package_index] = PackageStatus::Installed;
                                         }
 
                                         // Update cache
@@ -375,13 +365,12 @@ impl ManagePackagesScreen {
                                             }
                                         }
                                     } else {
-                                        let err_msg =
-                                            error.unwrap_or_else(|| "Unknown error".to_string());
+                                        let err_msg = error.unwrap_or_else(|| "Unknown error".to_string());
                                         error!("Failed to install {}: {}", package_name, err_msg);
                                         failed.push((*package_index, err_msg.clone()));
-                                        state.installation_output.push(format!(
-                                            "❌ Failed to install {package_name}: {err_msg}"
-                                        ));
+                                        state
+                                            .installation_output
+                                            .push(format!("❌ Failed to install {package_name}: {err_msg}"));
                                     }
                                     // Break after Complete to avoid hitting Disconnected
                                     break;
@@ -394,10 +383,7 @@ impl ManagePackagesScreen {
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                             // Thread died?
                             finished_current = true;
-                            failed.push((
-                                *package_index,
-                                "Installation thread disconnected".to_string(),
-                            ));
+                            failed.push((*package_index, "Installation thread disconnected".to_string()));
                             break;
                         }
                     }
@@ -427,24 +413,23 @@ impl ManagePackagesScreen {
 
         let state = &mut self.state;
         // Extract needed data to decide next step
-        let (next_packages, installed_list, failed_list, total) =
-            if let InstallationStep::Installing {
-                packages_to_install,
-                installed,
-                failed,
-                total_packages,
-                ..
-            } = &state.installation_step
-            {
-                (
-                    packages_to_install.clone(),
-                    installed.clone(),
-                    failed.clone(),
-                    *total_packages,
-                )
-            } else {
-                return Ok(());
-            };
+        let (next_packages, installed_list, failed_list, total) = if let InstallationStep::Installing {
+            packages_to_install,
+            installed,
+            failed,
+            total_packages,
+            ..
+        } = &state.installation_step
+        {
+            (
+                packages_to_install.clone(),
+                installed.clone(),
+                failed.clone(),
+                *total_packages,
+            )
+        } else {
+            return Ok(());
+        };
 
         if next_packages.is_empty() {
             // Done
@@ -471,8 +456,7 @@ impl ManagePackagesScreen {
                 failed: failed_list,
                 status_rx: None,
             };
-            state.installation_delay_until =
-                Some(std::time::Instant::now() + Duration::from_millis(500));
+            state.installation_delay_until = Some(std::time::Instant::now() + Duration::from_millis(500));
         }
 
         Ok(())
@@ -558,10 +542,7 @@ impl Screen for ManagePackagesScreen {
 
         // If installation is in progress (and not complete), blocking input except maybe quit?
         // App.rs checks `installation_step` to show progress.
-        if matches!(
-            self.state.installation_step,
-            InstallationStep::Installing { .. }
-        ) {
+        if matches!(self.state.installation_step, InstallationStep::Installing { .. }) {
             // Block generic input, maybe allow generic Quit via App?
             // But actually, we just ignore most keys.
             return Ok(ScreenAction::None);
@@ -589,9 +570,7 @@ impl Screen for ManagePackagesScreen {
                         return self.handle_delete_popup_event(key, config);
                     }
                     PackagePopupType::InstallMissing => {
-                        if let Some(action) =
-                            self.get_action(key.code, key.modifiers, &config.keymap)
-                        {
+                        if let Some(action) = self.get_action(key.code, key.modifiers, &config.keymap) {
                             match action {
                                 Action::Confirm => {
                                     self.state.popup_type = PackagePopupType::None;
@@ -636,10 +615,7 @@ impl Screen for ManagePackagesScreen {
     fn is_input_focused(&self) -> bool {
         matches!(
             self.state.popup_type,
-            PackagePopupType::Add
-                | PackagePopupType::Edit
-                | PackagePopupType::Delete
-                | PackagePopupType::Import
+            PackagePopupType::Add | PackagePopupType::Edit | PackagePopupType::Delete | PackagePopupType::Import
         )
     }
 }
@@ -682,10 +658,7 @@ impl ManagePackagesScreen {
         Ok(ScreenAction::None)
     }
 
-    fn handle_popup_mouse_event(
-        &mut self,
-        mouse: crossterm::event::MouseEvent,
-    ) -> Result<ScreenAction> {
+    fn handle_popup_mouse_event(&mut self, mouse: crossterm::event::MouseEvent) -> Result<ScreenAction> {
         use crate::ui::ImportFocus;
 
         let pos = ratatui::layout::Position::new(mouse.column, mouse.row);
@@ -710,9 +683,7 @@ impl ManagePackagesScreen {
                             // Calculate which tab was clicked based on x-position
                             // Each tab label is "  {name}  " with " " divider
                             let mut x_offset = area.x;
-                            for (i, source) in
-                                self.state.import_available_sources.iter().enumerate()
-                            {
+                            for (i, source) in self.state.import_available_sources.iter().enumerate() {
                                 let tab_width = (source.display_name().len() + 4) as u16; // "  name  "
                                 let divider_width = if i > 0 { 1 } else { 0 }; // " " divider
                                 let start = x_offset + divider_width;
@@ -736,9 +707,7 @@ impl ManagePackagesScreen {
                         }
                     }
                     // Click on list item → focus list and select item
-                    if let Some(&filtered_idx) =
-                        self.import_list_regions.hit_test(mouse.column, mouse.row)
-                    {
+                    if let Some(&filtered_idx) = self.import_list_regions.hit_test(mouse.column, mouse.row) {
                         self.state.import_focus = ImportFocus::List;
                         self.state.import_list_state.select(Some(filtered_idx));
                         return Ok(ScreenAction::Refresh);
@@ -796,9 +765,7 @@ impl ManagePackagesScreen {
                 return Ok(ScreenAction::Refresh);
             }
             Action::Refresh
-                if state.popup_type == PackagePopupType::None
-                    && !state.is_checking
-                    && !state.packages.is_empty() =>
+                if state.popup_type == PackagePopupType::None && !state.is_checking && !state.packages.is_empty() =>
             {
                 // Check All
                 // Initialize check all
@@ -808,28 +775,23 @@ impl ManagePackagesScreen {
                 state.package_statuses = vec![PackageStatus::Unknown; state.packages.len()];
                 state.is_checking = true;
                 state.checking_index = None;
-                state.checking_delay_until =
-                    Some(std::time::Instant::now() + Duration::from_millis(100));
+                state.checking_delay_until = Some(std::time::Instant::now() + Duration::from_millis(100));
                 return Ok(ScreenAction::Refresh);
             }
-            Action::CheckStatus
-                if state.popup_type == PackagePopupType::None && !state.is_checking =>
-            {
+            Action::CheckStatus if state.popup_type == PackagePopupType::None && !state.is_checking => {
                 // Check Selected
                 if let Some(idx) = state.list_state.selected() {
                     if idx < state.packages.len() {
                         // Reset status for this one
                         if state.package_statuses.len() != state.packages.len() {
-                            state.package_statuses =
-                                vec![PackageStatus::Unknown; state.packages.len()];
+                            state.package_statuses = vec![PackageStatus::Unknown; state.packages.len()];
                         }
                         state.package_statuses[idx] = PackageStatus::Unknown;
                         state.is_checking = true;
                         state.checking_index = Some(idx);
                         // Mark that we're checking only the selected package (not all)
                         // We'll use checking_index = Some(idx) to indicate "check selected" mode
-                        state.checking_delay_until =
-                            Some(std::time::Instant::now() + Duration::from_millis(100));
+                        state.checking_delay_until = Some(std::time::Instant::now() + Duration::from_millis(100));
                         return Ok(ScreenAction::Refresh);
                     }
                 }
@@ -939,22 +901,13 @@ impl ManagePackagesScreen {
 
             state.available_managers = PackageManagerImpl::get_available_managers();
             state.add_manager = Some(pkg.manager.clone());
-            state.add_is_custom = matches!(
-                pkg.manager,
-                crate::utils::profile_manifest::PackageManager::Custom
-            );
-            if let Some(pos) = state
-                .available_managers
-                .iter()
-                .position(|m| *m == pkg.manager)
-            {
+            state.add_is_custom = matches!(pkg.manager, crate::utils::profile_manifest::PackageManager::Custom);
+            if let Some(pos) = state.available_managers.iter().position(|m| *m == pkg.manager) {
                 state.add_manager_selected = pos;
             } else {
                 state.add_manager_selected = 0;
             }
-            state
-                .manager_list_state
-                .select(Some(state.add_manager_selected));
+            state.manager_list_state.select(Some(state.add_manager_selected));
 
             state.add_focused_field = AddPackageField::Name;
         }
@@ -1009,8 +962,7 @@ impl ManagePackagesScreen {
             // Start async discovery for first source
             let source = state.import_available_sources[0];
             state.import_loading = true;
-            state.import_discovery_rx =
-                Some(PackageDiscoveryService::discover_source_async(source));
+            state.import_discovery_rx = Some(PackageDiscoveryService::discover_source_async(source));
         }
 
         Ok(())
@@ -1025,11 +977,7 @@ impl ManagePackagesScreen {
         }
 
         // Save selection for current tab
-        if let Some(current_source) = self
-            .state
-            .import_available_sources
-            .get(self.state.import_active_tab)
-        {
+        if let Some(current_source) = self.state.import_available_sources.get(self.state.import_active_tab) {
             if let Some(cache) = self.state.import_source_cache.get_mut(current_source) {
                 cache.selected = self.state.import_selected.clone();
             }
@@ -1063,8 +1011,7 @@ impl ManagePackagesScreen {
             let source = state.import_available_sources[new_tab];
             state.import_loading = true;
             state.import_spinner_tick = 0;
-            state.import_discovery_rx =
-                Some(PackageDiscoveryService::discover_source_async(source));
+            state.import_discovery_rx = Some(PackageDiscoveryService::discover_source_async(source));
         }
     }
 
@@ -1098,11 +1045,7 @@ impl ManagePackagesScreen {
                         let filtered_packages: Vec<_> = packages
                             .into_iter()
                             .filter(|p| {
-                                let binary = p
-                                    .binary_name
-                                    .as_ref()
-                                    .unwrap_or(&p.package_name)
-                                    .to_lowercase();
+                                let binary = p.binary_name.as_ref().unwrap_or(&p.package_name).to_lowercase();
                                 !existing_binaries.contains(&binary)
                             })
                             .collect();
@@ -1172,9 +1115,8 @@ impl ManagePackagesScreen {
                     AddPackageField::PackageName => {
                         // Before inserting the new character, check if binary name should be auto-updated
                         // Get the current suggestion (before the new char)
-                        let old_suggestion = PackageManagerImpl::suggest_binary_name(
-                            state.add_package_name_input.text(),
-                        );
+                        let old_suggestion =
+                            PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
                         let should_auto_update = state.add_binary_name_input.text().is_empty()
                             || state.add_binary_name_input.text() == old_suggestion;
 
@@ -1182,11 +1124,9 @@ impl ManagePackagesScreen {
 
                         // Update binary name suggestion if user hasn't manually edited it
                         if should_auto_update {
-                            let new_suggestion = PackageManagerImpl::suggest_binary_name(
-                                state.add_package_name_input.text(),
-                            );
-                            state.add_binary_name_input =
-                                crate::utils::TextInput::with_text(new_suggestion);
+                            let new_suggestion =
+                                PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
+                            state.add_binary_name_input = crate::utils::TextInput::with_text(new_suggestion);
                         }
                     }
                     AddPackageField::BinaryName => {
@@ -1274,8 +1214,7 @@ impl ManagePackagesScreen {
                     if state.add_focused_field == AddPackageField::Manager {
                         // Select manager
                         if !state.available_managers.is_empty() {
-                            state.add_manager =
-                                Some(state.available_managers[state.add_manager_selected].clone());
+                            state.add_manager = Some(state.available_managers[state.add_manager_selected].clone());
                             state.add_is_custom = matches!(
                                 state.available_managers[state.add_manager_selected],
                                 crate::utils::profile_manifest::PackageManager::Custom
@@ -1335,14 +1274,9 @@ impl ManagePackagesScreen {
                         });
 
                         if duplicate {
-                            warn!(
-                                "Package validation failed: duplicate binary name '{}'",
-                                binary_name
-                            );
-                            self.state.add_validation_error = Some(format!(
-                                "A package with binary '{}' already exists",
-                                binary_name.trim()
-                            ));
+                            warn!("Package validation failed: duplicate binary name '{}'", binary_name);
+                            self.state.add_validation_error =
+                                Some(format!("A package with binary '{}' already exists", binary_name.trim()));
                             return Ok(ScreenAction::Refresh);
                         }
 
@@ -1370,11 +1304,7 @@ impl ManagePackagesScreen {
                         };
 
                         // Track newly added package to prompt install after check
-                        let new_package_index = if is_new_package {
-                            Some(packages.len() - 1)
-                        } else {
-                            None
-                        };
+                        let new_package_index = if is_new_package { Some(packages.len() - 1) } else { None };
 
                         self.update_packages(packages, active_profile);
 
@@ -1408,15 +1338,12 @@ impl ManagePackagesScreen {
                                 state.add_manager_selected - 1
                             };
                         }
-                        state.add_manager =
-                            Some(state.available_managers[state.add_manager_selected].clone());
+                        state.add_manager = Some(state.available_managers[state.add_manager_selected].clone());
                         state.add_is_custom = matches!(
                             state.available_managers[state.add_manager_selected],
                             crate::utils::profile_manifest::PackageManager::Custom
                         );
-                        state
-                            .manager_list_state
-                            .select(Some(state.add_manager_selected));
+                        state.manager_list_state.select(Some(state.add_manager_selected));
                     }
                     return Ok(ScreenAction::Refresh);
                 }
@@ -1490,9 +1417,7 @@ impl ManagePackagesScreen {
                 }
                 AddPackageField::PackageName => {
                     // Before backspacing, check if binary name should be auto-updated
-                    let old_suggestion = PackageManagerImpl::suggest_binary_name(
-                        state.add_package_name_input.text(),
-                    );
+                    let old_suggestion = PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
                     let should_auto_update = state.add_binary_name_input.text().is_empty()
                         || state.add_binary_name_input.text() == old_suggestion;
 
@@ -1500,11 +1425,9 @@ impl ManagePackagesScreen {
 
                     // Update binary name suggestion if user hasn't manually edited it
                     if should_auto_update {
-                        let new_suggestion = PackageManagerImpl::suggest_binary_name(
-                            state.add_package_name_input.text(),
-                        );
-                        state.add_binary_name_input =
-                            crate::utils::TextInput::with_text(new_suggestion);
+                        let new_suggestion =
+                            PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
+                        state.add_binary_name_input = crate::utils::TextInput::with_text(new_suggestion);
                     }
                 }
                 AddPackageField::BinaryName => {
@@ -1531,9 +1454,7 @@ impl ManagePackagesScreen {
                 }
                 AddPackageField::PackageName => {
                     // Before deleting, check if binary name should be auto-updated
-                    let old_suggestion = PackageManagerImpl::suggest_binary_name(
-                        state.add_package_name_input.text(),
-                    );
+                    let old_suggestion = PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
                     let should_auto_update = state.add_binary_name_input.text().is_empty()
                         || state.add_binary_name_input.text() == old_suggestion;
 
@@ -1541,11 +1462,9 @@ impl ManagePackagesScreen {
 
                     // Update binary name suggestion if user hasn't manually edited it
                     if should_auto_update {
-                        let new_suggestion = PackageManagerImpl::suggest_binary_name(
-                            state.add_package_name_input.text(),
-                        );
-                        state.add_binary_name_input =
-                            crate::utils::TextInput::with_text(new_suggestion);
+                        let new_suggestion =
+                            PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
+                        state.add_binary_name_input = crate::utils::TextInput::with_text(new_suggestion);
                     }
                 }
                 AddPackageField::BinaryName => {
@@ -1581,9 +1500,8 @@ impl ManagePackagesScreen {
                     AddPackageField::PackageName => {
                         // Before inserting the new character, check if binary name should be auto-updated
                         // Get the current suggestion (before the new char)
-                        let old_suggestion = PackageManagerImpl::suggest_binary_name(
-                            state.add_package_name_input.text(),
-                        );
+                        let old_suggestion =
+                            PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
                         let should_auto_update = state.add_binary_name_input.text().is_empty()
                             || state.add_binary_name_input.text() == old_suggestion;
 
@@ -1591,11 +1509,9 @@ impl ManagePackagesScreen {
 
                         // Update binary name suggestion if user hasn't manually edited it
                         if should_auto_update {
-                            let new_suggestion = PackageManagerImpl::suggest_binary_name(
-                                state.add_package_name_input.text(),
-                            );
-                            state.add_binary_name_input =
-                                crate::utils::TextInput::with_text(new_suggestion);
+                            let new_suggestion =
+                                PackageManagerImpl::suggest_binary_name(state.add_package_name_input.text());
+                            state.add_binary_name_input = crate::utils::TextInput::with_text(new_suggestion);
                         }
                     }
                     AddPackageField::BinaryName => {
@@ -1616,11 +1532,7 @@ impl ManagePackagesScreen {
         Ok(ScreenAction::None)
     }
 
-    fn handle_delete_popup_event(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_delete_popup_event(&mut self, key: crossterm::event::KeyEvent, config: &Config) -> Result<ScreenAction> {
         let action = config.keymap.get_action(key.code, key.modifiers);
         let state = &mut self.state;
 
@@ -1635,19 +1547,11 @@ impl ManagePackagesScreen {
                         // Get package name before deletion to remove from cache
                         let package_name = state.packages.get(idx).map(|p| p.name.clone());
 
-                        let packages = PackageService::delete_package(
-                            &config.repo_path,
-                            &config.active_profile,
-                            idx,
-                        )?;
+                        let packages = PackageService::delete_package(&config.repo_path, &config.active_profile, idx)?;
 
                         // Remove from cache
                         if let Some(name) = package_name {
-                            if let Err(e) = self
-                                .state
-                                .cache
-                                .remove_status(&config.active_profile, &name)
-                            {
+                            if let Err(e) = self.state.cache.remove_status(&config.active_profile, &name) {
                                 warn!("Failed to remove package from cache: {}", e);
                             }
                         }
@@ -1698,11 +1602,7 @@ impl ManagePackagesScreen {
         Ok(ScreenAction::None)
     }
 
-    fn handle_import_popup_event(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_import_popup_event(&mut self, key: crossterm::event::KeyEvent, config: &Config) -> Result<ScreenAction> {
         use crate::ui::ImportFocus;
 
         let action = config.keymap.get_action(key.code, key.modifiers);
@@ -1778,11 +1678,7 @@ impl ManagePackagesScreen {
         }
     }
 
-    fn handle_import_tabs_input(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_import_tabs_input(&mut self, key: crossterm::event::KeyEvent, config: &Config) -> Result<ScreenAction> {
         use crate::ui::ImportFocus;
 
         let action = config.keymap.get_action(key.code, key.modifiers);
@@ -1796,9 +1692,7 @@ impl ManagePackagesScreen {
                     return Ok(ScreenAction::Refresh);
                 }
                 Action::MoveRight => {
-                    if self.state.import_active_tab
-                        < self.state.import_available_sources.len().saturating_sub(1)
-                    {
+                    if self.state.import_active_tab < self.state.import_available_sources.len().saturating_sub(1) {
                         self.switch_import_tab(self.state.import_active_tab + 1);
                     }
                     return Ok(ScreenAction::Refresh);
@@ -1814,11 +1708,7 @@ impl ManagePackagesScreen {
         Ok(ScreenAction::None)
     }
 
-    fn handle_import_filter_input(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_import_filter_input(&mut self, key: crossterm::event::KeyEvent, config: &Config) -> Result<ScreenAction> {
         use crate::ui::ImportFocus;
 
         let action = config.keymap.get_action(key.code, key.modifiers);
@@ -1869,11 +1759,7 @@ impl ManagePackagesScreen {
         Ok(ScreenAction::None)
     }
 
-    fn handle_import_list_input(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_import_list_input(&mut self, key: crossterm::event::KeyEvent, config: &Config) -> Result<ScreenAction> {
         let action = config.keymap.get_action(key.code, key.modifiers);
 
         if let Some(action) = action {
@@ -1882,11 +1768,7 @@ impl ManagePackagesScreen {
                     let filtered = self.get_filtered_import_packages();
                     if !filtered.is_empty() {
                         let current = self.state.import_list_state.selected().unwrap_or(0);
-                        let new_idx = if current == 0 {
-                            filtered.len() - 1
-                        } else {
-                            current - 1
-                        };
+                        let new_idx = if current == 0 { filtered.len() - 1 } else { current - 1 };
                         self.state.import_list_state.select(Some(new_idx));
                     }
                     return Ok(ScreenAction::Refresh);
@@ -1956,11 +1838,7 @@ impl ManagePackagesScreen {
 
     fn import_selected_packages(&mut self, config: &Config) -> Result<ScreenAction> {
         // First, sync current tab's selection to cache so it's included in the loop
-        if let Some(current_source) = self
-            .state
-            .import_available_sources
-            .get(self.state.import_active_tab)
-        {
+        if let Some(current_source) = self.state.import_available_sources.get(self.state.import_active_tab) {
             if let Some(cache) = self.state.import_source_cache.get_mut(current_source) {
                 cache.selected = self.state.import_selected.clone();
             }
@@ -2013,10 +1891,7 @@ impl ManagePackagesScreen {
                     packages_imported = true;
                 }
                 Err(e) => {
-                    warn!(
-                        "Failed to import package {}: {}",
-                        discovered.package_name, e
-                    );
+                    warn!("Failed to import package {}: {}", discovered.package_name, e);
                 }
             }
         }
@@ -2049,21 +1924,14 @@ impl ManagePackagesScreen {
 
 // Rendering methods inlined from PackageManagerComponent
 impl ManagePackagesScreen {
-    fn render_package_list(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_package_list(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let t = theme();
 
         if self.state.packages.is_empty() {
             // Show empty state message
             let paragraph = Paragraph::new(format!(
                 "No packages yet.\n\nPress '{}' to add your first package.",
-                config
-                    .keymap
-                    .get_key_display_for_action(crate::keymap::Action::Create)
+                config.keymap.get_key_display_for_action(crate::keymap::Action::Create)
             ))
             .block(
                 Block::default()
@@ -2124,10 +1992,7 @@ impl ManagePackagesScreen {
                         Span::styled(" ", style),
                         Span::styled(&package.name, style),
                         Span::raw(padding),
-                        Span::styled(
-                            format!(" {manager_str}"),
-                            Style::default().italic().fg(t.text_dimmed),
-                        ),
+                        Span::styled(format!(" {manager_str}"), Style::default().italic().fg(t.text_dimmed)),
                     ]);
 
                     ListItem::new(line)
@@ -2168,12 +2033,7 @@ impl ManagePackagesScreen {
         Ok(())
     }
 
-    fn render_package_details(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_package_details(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let selected = self.state.list_state.selected();
         let details = if let Some(idx) = selected {
             if let Some(package) = self.state.packages.get(idx) {
@@ -2203,12 +2063,7 @@ impl ManagePackagesScreen {
         Ok(())
     }
 
-    fn format_package_details(
-        &self,
-        package: &Package,
-        idx: usize,
-        config: &Config,
-    ) -> Vec<Line<'_>> {
+    fn format_package_details(&self, package: &Package, idx: usize, config: &Config) -> Vec<Line<'_>> {
         let t = theme();
         let icons = crate::icons::Icons::from_config(config);
         let mut lines = Vec::new();
@@ -2225,14 +2080,8 @@ impl ManagePackagesScreen {
 
         if let Some(desc) = &package.description {
             lines.push(Line::from(""));
-            lines.push(Line::from(vec![Span::styled(
-                "Description:",
-                t.title_style(),
-            )]));
-            lines.push(Line::from(vec![Span::styled(
-                desc.clone(),
-                t.muted_style(),
-            )]));
+            lines.push(Line::from(vec![Span::styled("Description:", t.title_style())]));
+            lines.push(Line::from(vec![Span::styled(desc.clone(), t.muted_style())]));
         }
 
         lines.push(Line::from(""));
@@ -2278,13 +2127,9 @@ impl ManagePackagesScreen {
                         t.title_style(),
                     )]));
 
-                    let instructions =
-                        PackageManagerImpl::installation_instructions(&package.manager);
+                    let instructions = PackageManagerImpl::installation_instructions(&package.manager);
                     for line in instructions.lines() {
-                        lines.push(Line::from(vec![Span::styled(
-                            line.to_string(),
-                            t.muted_style(),
-                        )]));
+                        lines.push(Line::from(vec![Span::styled(line.to_string(), t.muted_style())]));
                     }
                 }
             }
@@ -2312,11 +2157,7 @@ impl ManagePackagesScreen {
         }
 
         // Cache details
-        if let Some(entry) = self
-            .state
-            .cache
-            .get_status(&self.state.active_profile, &package.name)
-        {
+        if let Some(entry) = self.state.cache.get_status(&self.state.active_profile, &package.name) {
             lines.push(Line::from(""));
             lines.push(Line::from(""));
             lines.push(Line::from(vec![Span::styled(
@@ -2327,10 +2168,7 @@ impl ManagePackagesScreen {
             lines.push(Line::from(vec![
                 Span::styled("Time: ", t.title_style()),
                 Span::styled(
-                    entry
-                        .last_checked
-                        .format("%Y-%m-%d %H:%M:%S UTC")
-                        .to_string(),
+                    entry.last_checked.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
                     t.text_style(),
                 ),
             ]));
@@ -2353,10 +2191,7 @@ impl ManagePackagesScreen {
                 lines.push(Line::from(vec![Span::styled("Output:", t.title_style())]));
 
                 for line in display_output.lines() {
-                    lines.push(Line::from(vec![Span::styled(
-                        line.to_string(),
-                        t.muted_style(),
-                    )]));
+                    lines.push(Line::from(vec![Span::styled(line.to_string(), t.muted_style())]));
                 }
             }
         }
@@ -2383,12 +2218,7 @@ impl ManagePackagesScreen {
         Ok(())
     }
 
-    fn render_add_edit_popup(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_add_edit_popup(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         use crate::components::Popup;
 
         let t = theme();
@@ -2457,8 +2287,7 @@ impl ManagePackagesScreen {
         frame.render_widget(title_para, chunks[0]);
 
         // Name field
-        self.add_field_areas
-            .push((chunks[1], AddPackageField::Name));
+        self.add_field_areas.push((chunks[1], AddPackageField::Name));
         let widget = TextInputWidget::new(&self.state.add_name_input)
             .title("Name")
             .placeholder("Package display name")
@@ -2466,8 +2295,7 @@ impl ManagePackagesScreen {
         frame.render_text_input_widget(widget, chunks[1]);
 
         // Description field
-        self.add_field_areas
-            .push((chunks[2], AddPackageField::Description));
+        self.add_field_areas.push((chunks[2], AddPackageField::Description));
         let widget = TextInputWidget::new(&self.state.add_description_input)
             .title("Description (optional)")
             .placeholder("Package description")
@@ -2475,8 +2303,7 @@ impl ManagePackagesScreen {
         frame.render_text_input_widget(widget, chunks[2]);
 
         // Manager selection
-        self.add_field_areas
-            .push((chunks[3], AddPackageField::Manager));
+        self.add_field_areas.push((chunks[3], AddPackageField::Manager));
         self.render_manager_selection(frame, chunks[3])?;
 
         let mut current_chunk = 4; // Start after title, name, description, manager
@@ -2505,9 +2332,7 @@ impl ManagePackagesScreen {
                 .push((chunks[current_chunk], AddPackageField::ExistenceCheck));
             let widget = TextInputWidget::new(&self.state.add_existence_check_input)
                 .title("Existence Check (optional)")
-                .placeholder(
-                    "Command to check if package exists (if empty, uses binary name check)",
-                )
+                .placeholder("Command to check if package exists (if empty, uses binary name check)")
                 .focused(self.state.add_focused_field == AddPackageField::ExistenceCheck);
             frame.render_text_input_widget(widget, chunks[current_chunk]);
             current_chunk += 1;
@@ -2591,13 +2416,11 @@ impl ManagePackagesScreen {
             .borders(Borders::ALL)
             .border_type(theme().border_type(false))
             .title(" Package Manager ")
-            .border_style(
-                if self.state.add_focused_field == AddPackageField::Manager {
-                    focused_border_style()
-                } else {
-                    unfocused_border_style()
-                },
-            );
+            .border_style(if self.state.add_focused_field == AddPackageField::Manager {
+                focused_border_style()
+            } else {
+                unfocused_border_style()
+            });
 
         let inner_area = block.inner(area);
         frame.render_widget(block, area);
@@ -2634,12 +2457,10 @@ impl ManagePackagesScreen {
             );
 
             // Create styled text for checkbox
-            let is_focused = self.state.add_focused_field == AddPackageField::Manager
-                && self.state.add_manager_selected == idx;
+            let is_focused =
+                self.state.add_focused_field == AddPackageField::Manager && self.state.add_manager_selected == idx;
             let checkbox_style = if is_focused {
-                Style::default()
-                    .fg(t.text_emphasis)
-                    .add_modifier(Modifier::BOLD)
+                Style::default().fg(t.text_emphasis).add_modifier(Modifier::BOLD)
             } else if *is_selected {
                 Style::default().fg(t.success)
             } else {
@@ -2654,8 +2475,7 @@ impl ManagePackagesScreen {
                 self.state.add_manager = Some(self.state.available_managers[idx].clone());
                 self.state.add_manager_selected = idx;
                 // Auto-detect if custom
-                self.state.add_is_custom =
-                    matches!(self.state.available_managers[idx], PackageManager::Custom);
+                self.state.add_is_custom = matches!(self.state.available_managers[idx], PackageManager::Custom);
             }
 
             current_x += checkbox_width;
@@ -2664,19 +2484,11 @@ impl ManagePackagesScreen {
         Ok(())
     }
 
-    fn render_delete_popup(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_delete_popup(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         use crate::widgets::{Dialog, DialogVariant};
 
         let package_name = if let Some(idx) = self.state.delete_index {
-            self.state
-                .packages
-                .get(idx)
-                .map_or("Unknown", |p| p.name.as_str())
+            self.state.packages.get(idx).map_or("Unknown", |p| p.name.as_str())
         } else {
             "Unknown"
         };
@@ -2699,8 +2511,7 @@ impl ManagePackagesScreen {
 
         // Render confirmation input below the dialog
         // Calculate dialog position to match Dialog's internal calculation
-        let calculated_dialog_height =
-            (f32::from(area.height) * (f32::from(dialog_height) / 100.0)) as u16;
+        let calculated_dialog_height = (f32::from(area.height) * (f32::from(dialog_height) / 100.0)) as u16;
         let dialog_y = area.y + (area.height.saturating_sub(calculated_dialog_height)) / 2;
         let input_y = dialog_y + calculated_dialog_height + 2; // 2 lines spacing
 
@@ -2822,10 +2633,7 @@ impl ManagePackagesScreen {
                 use crate::widgets::{Dialog, DialogVariant};
 
                 // Build summary content
-                let mut summary = format!(
-                    "✅ Successfully installed: {} package(s)\n",
-                    installed.len()
-                );
+                let mut summary = format!("✅ Successfully installed: {} package(s)\n", installed.len());
                 if !failed.is_empty() {
                     summary.push_str(&format!("❌ Failed: {} package(s)\n\n", failed.len()));
                     summary.push_str("Failed packages:\n");
@@ -2852,12 +2660,7 @@ impl ManagePackagesScreen {
         Ok(())
     }
 
-    fn render_install_missing_popup(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_install_missing_popup(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         use crate::widgets::{Dialog, DialogVariant};
 
         // Count missing packages
@@ -2874,10 +2677,7 @@ impl ManagePackagesScreen {
             .iter()
             .enumerate()
             .filter_map(|(idx, pkg)| {
-                if matches!(
-                    self.state.package_statuses.get(idx),
-                    Some(PackageStatus::NotInstalled)
-                ) {
+                if matches!(self.state.package_statuses.get(idx), Some(PackageStatus::NotInstalled)) {
                     Some(pkg.name.clone())
                 } else {
                     None
@@ -2924,12 +2724,7 @@ impl ManagePackagesScreen {
         Ok(())
     }
 
-    fn render_import_popup(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_import_popup(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         use crate::components::Popup;
         use crate::ui::ImportFocus;
         use ratatui::symbols;
@@ -2983,11 +2778,7 @@ impl ManagePackagesScreen {
         frame.render_widget(title, outer_chunks[0]);
 
         // Store tab area for mouse click-to-switch
-        self.import_tabs_area = if show_tabs {
-            Some(outer_chunks[1])
-        } else {
-            None
-        };
+        self.import_tabs_area = if show_tabs { Some(outer_chunks[1]) } else { None };
 
         // Tabs (only if we have multiple sources)
         if show_tabs {
@@ -3107,9 +2898,7 @@ impl ManagePackagesScreen {
                 .import_active_source()
                 .map_or("packages", |s| s.display_name());
 
-            let loading_text = format!(
-                "{spinner} Discovering {source_name} packages...\n\nThis may take a moment"
-            );
+            let loading_text = format!("{spinner} Discovering {source_name} packages...\n\nThis may take a moment");
             let loading = Paragraph::new(loading_text)
                 .alignment(Alignment::Center)
                 .style(Style::default().fg(t.text_muted));

@@ -8,7 +8,8 @@ const RESERVED_NAMES: &[&str] = &[
     "node_modules",
     "target",
     "build",
-    "common", // Reserved for common files shared across all profiles
+    "common",    // Reserved for common files shared across all profiles
+    "templates", // Reserved for the template sources tree (templates/<profile>/...)
 ];
 
 /// Maximum profile name length
@@ -49,10 +50,7 @@ pub fn validate_profile_name(name: &str, existing_profiles: &[String]) -> Result
     }
 
     // Check for valid characters (alphanumeric, hyphens, underscores)
-    if !trimmed
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-    {
+    if !trimmed.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
         bail!("Profile name can only contain letters, numbers, hyphens, and underscores");
     }
 
@@ -68,10 +66,7 @@ pub fn validate_profile_name(name: &str, existing_profiles: &[String]) -> Result
     }
 
     // Check uniqueness (case-insensitive)
-    if existing_profiles
-        .iter()
-        .any(|p| p.eq_ignore_ascii_case(trimmed))
-    {
+    if existing_profiles.iter().any(|p| p.eq_ignore_ascii_case(trimmed)) {
         bail!("A profile with the name '{trimmed}' already exists");
     }
 
@@ -125,9 +120,7 @@ pub fn is_safe_profile_name(name: &str) -> bool {
     !trimmed.is_empty()
         && trimmed.len() <= MAX_NAME_LENGTH
         && !trimmed.starts_with('.')
-        && trimmed
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+        && trimmed.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_')
         && !RESERVED_NAMES.contains(&trimmed.to_lowercase().as_str())
 }
 
@@ -164,6 +157,8 @@ mod tests {
         assert!(validate_profile_name(".git", &existing).is_err());
         assert!(validate_profile_name("common", &existing).is_err());
         assert!(validate_profile_name("Common", &existing).is_err()); // Case-insensitive
+        assert!(validate_profile_name("templates", &existing).is_err());
+        assert!(validate_profile_name("Templates", &existing).is_err()); // Case-insensitive
 
         // Starts with dot
         assert!(validate_profile_name(".hidden", &existing).is_err());

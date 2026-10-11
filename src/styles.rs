@@ -39,19 +39,14 @@ static THEME: RwLock<Theme> = RwLock::new(Theme {
 pub fn init_theme(theme_type: ThemeType) {
     // Recover from poison - if a thread panicked while holding the lock,
     // we still want to update the theme rather than propagate the panic
-    let mut theme = THEME
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let mut theme = THEME.write().unwrap_or_else(std::sync::PoisonError::into_inner);
     *theme = Theme::new(theme_type);
 }
 
 /// Get the current theme
 pub fn theme() -> Theme {
     // Recover from poison - theme should always be accessible
-    THEME
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
+    THEME.read().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
 }
 
 /// Theme type selector
@@ -154,8 +149,9 @@ impl FromStr for ThemeType {
             "gruvbox-light" | "gruvbox_light" => ThemeType::GruvboxLight,
             "catppuccin-mocha" | "catppuccin_mocha" | "catppuccin" => ThemeType::CatppuccinMocha,
             "catppuccin-latte" | "catppuccin_latte" => ThemeType::CatppuccinLatte,
-            "tokyonight-dark" | "tokyonight_dark" | "tokyonight" | "tokyo-night"
-            | "tokyo_night" => ThemeType::TokyoNightDark,
+            "tokyonight-dark" | "tokyonight_dark" | "tokyonight" | "tokyo-night" | "tokyo_night" => {
+                ThemeType::TokyoNightDark
+            }
             "tokyonight-light" | "tokyonight_light" | "tokyo-night-light" | "tokyo_night_light" => {
                 ThemeType::TokyoNightLight
             }
@@ -260,7 +256,7 @@ impl Theme {
             text: Color::Rgb(200, 200, 200),       // Light gray
             text_muted: Color::Rgb(170, 170, 170), // ~5.5:1 on #141414 — readable secondary
             text_dimmed: Color::Rgb(100, 100, 100),
-            text_emphasis: Color::Rgb(220, 140, 0), // Match warning/orange
+            text_emphasis: Color::Rgb(220, 140, 0),      // Match warning/orange
             text_placeholder: Color::Rgb(136, 136, 136), // ~3.7:1 — clearly placeholder, not content
 
             // UI colors
@@ -395,10 +391,10 @@ impl Theme {
             warning: Color::Rgb(214, 93, 14),  // orange #d65d0e
             error: Color::Rgb(204, 36, 29),    // red #cc241d
 
-            text: Color::Rgb(235, 219, 178),         // fg1 #ebdbb2
-            text_muted: Color::Rgb(168, 153, 132),   // fg4 #a89984 — ~5:1
-            text_dimmed: Color::Rgb(102, 92, 84),    // bg3 #665c54
-            text_emphasis: Color::Rgb(250, 189, 47), // bright yellow #fabd2f
+            text: Color::Rgb(235, 219, 178),             // fg1 #ebdbb2
+            text_muted: Color::Rgb(168, 153, 132),       // fg4 #a89984 — ~5:1
+            text_dimmed: Color::Rgb(102, 92, 84),        // bg3 #665c54
+            text_emphasis: Color::Rgb(250, 189, 47),     // bright yellow #fabd2f
             text_placeholder: Color::Rgb(146, 131, 116), // gray #928374 — ~3.7:1, clearly placeholder
 
             border: Color::Rgb(146, 131, 116), // gray #928374 — ~3.7:1 (titles inherit)
@@ -422,9 +418,9 @@ impl Theme {
             // Gruvbox Palette (Light)
             // bg0:  #fbf1c7  bg1: #ebdbb2  bg2: #d5c4a1  bg3: #bdae93
             // fg0:  #282828  fg1: #3c3836  fg4: #7c6f64
-            primary: Color::Rgb(175, 58, 3), // orange-dark #af3a03
+            primary: Color::Rgb(175, 58, 3),     // orange-dark #af3a03
             secondary: Color::Rgb(143, 63, 113), // purple-dark #8f3f71
-            tertiary: Color::Rgb(7, 102, 120), // blue-dark #076678
+            tertiary: Color::Rgb(7, 102, 120),   // blue-dark #076678
 
             success: Color::Rgb(121, 116, 14), // green-dark #79740e
             warning: Color::Rgb(181, 118, 20), // yellow-dark #b57614
@@ -470,10 +466,10 @@ impl Theme {
             warning: Color::Rgb(249, 226, 175), // Yellow #f9e2af
             error: Color::Rgb(243, 139, 168),   // Red #f38ba8
 
-            text: Color::Rgb(205, 214, 244),          // Text #cdd6f4
-            text_muted: Color::Rgb(166, 173, 200),    // Subtext0 #a6adc8 — ~6.9:1
-            text_dimmed: Color::Rgb(88, 91, 112),     // Surface2 #585b70
-            text_emphasis: Color::Rgb(250, 179, 135), // Peach #fab387
+            text: Color::Rgb(205, 214, 244),             // Text #cdd6f4
+            text_muted: Color::Rgb(166, 173, 200),       // Subtext0 #a6adc8 — ~6.9:1
+            text_dimmed: Color::Rgb(88, 91, 112),        // Surface2 #585b70
+            text_emphasis: Color::Rgb(250, 179, 135),    // Peach #fab387
             text_placeholder: Color::Rgb(127, 132, 156), // Overlay1 #7f849c — ~3.7:1
 
             border: Color::Rgb(127, 132, 156), // Overlay1 #7f849c — ~3.7:1 (titles inherit)
@@ -721,9 +717,7 @@ impl Theme {
         if self.theme_type == ThemeType::NoColor {
             return Style::default().add_modifier(Modifier::BOLD);
         }
-        Style::default()
-            .fg(self.primary)
-            .add_modifier(Modifier::BOLD)
+        Style::default().fg(self.primary).add_modifier(Modifier::BOLD)
     }
 
     /// Style for regular text
@@ -876,18 +870,9 @@ mod tests {
         assert_eq!("nocolor".parse::<ThemeType>().unwrap(), ThemeType::NoColor);
         assert_eq!("no-color".parse::<ThemeType>().unwrap(), ThemeType::NoColor);
         assert_eq!("no_color".parse::<ThemeType>().unwrap(), ThemeType::NoColor);
-        assert_eq!(
-            "solarized-dark".parse::<ThemeType>().unwrap(),
-            ThemeType::SolarizedDark
-        );
-        assert_eq!(
-            "solarized_dark".parse::<ThemeType>().unwrap(),
-            ThemeType::SolarizedDark
-        );
-        assert_eq!(
-            "solarized".parse::<ThemeType>().unwrap(),
-            ThemeType::SolarizedDark
-        );
+        assert_eq!("solarized-dark".parse::<ThemeType>().unwrap(), ThemeType::SolarizedDark);
+        assert_eq!("solarized_dark".parse::<ThemeType>().unwrap(), ThemeType::SolarizedDark);
+        assert_eq!("solarized".parse::<ThemeType>().unwrap(), ThemeType::SolarizedDark);
         assert_eq!(
             "solarized-light".parse::<ThemeType>().unwrap(),
             ThemeType::SolarizedLight
@@ -896,26 +881,14 @@ mod tests {
             "solarized_light".parse::<ThemeType>().unwrap(),
             ThemeType::SolarizedLight
         );
-        assert_eq!(
-            "gruvbox-dark".parse::<ThemeType>().unwrap(),
-            ThemeType::GruvboxDark
-        );
-        assert_eq!(
-            "gruvbox".parse::<ThemeType>().unwrap(),
-            ThemeType::GruvboxDark
-        );
-        assert_eq!(
-            "gruvbox-light".parse::<ThemeType>().unwrap(),
-            ThemeType::GruvboxLight
-        );
+        assert_eq!("gruvbox-dark".parse::<ThemeType>().unwrap(), ThemeType::GruvboxDark);
+        assert_eq!("gruvbox".parse::<ThemeType>().unwrap(), ThemeType::GruvboxDark);
+        assert_eq!("gruvbox-light".parse::<ThemeType>().unwrap(), ThemeType::GruvboxLight);
         assert_eq!(
             "catppuccin-mocha".parse::<ThemeType>().unwrap(),
             ThemeType::CatppuccinMocha
         );
-        assert_eq!(
-            "catppuccin".parse::<ThemeType>().unwrap(),
-            ThemeType::CatppuccinMocha
-        );
+        assert_eq!("catppuccin".parse::<ThemeType>().unwrap(), ThemeType::CatppuccinMocha);
         assert_eq!(
             "catppuccin-latte".parse::<ThemeType>().unwrap(),
             ThemeType::CatppuccinLatte
@@ -924,14 +897,8 @@ mod tests {
             "tokyonight-dark".parse::<ThemeType>().unwrap(),
             ThemeType::TokyoNightDark
         );
-        assert_eq!(
-            "tokyonight".parse::<ThemeType>().unwrap(),
-            ThemeType::TokyoNightDark
-        );
-        assert_eq!(
-            "tokyo-night".parse::<ThemeType>().unwrap(),
-            ThemeType::TokyoNightDark
-        );
+        assert_eq!("tokyonight".parse::<ThemeType>().unwrap(), ThemeType::TokyoNightDark);
+        assert_eq!("tokyo-night".parse::<ThemeType>().unwrap(), ThemeType::TokyoNightDark);
         assert_eq!(
             "tokyonight-light".parse::<ThemeType>().unwrap(),
             ThemeType::TokyoNightLight

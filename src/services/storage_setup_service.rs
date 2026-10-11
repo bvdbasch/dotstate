@@ -66,9 +66,7 @@ impl StepHandle {
         match self.receiver.try_recv() {
             Ok(result) => Some(result),
             Err(oneshot::error::TryRecvError::Empty) => None,
-            Err(oneshot::error::TryRecvError::Closed) => {
-                Some(Err(anyhow::anyhow!("Step channel closed unexpectedly")))
-            }
+            Err(oneshot::error::TryRecvError::Closed) => Some(Err(anyhow::anyhow!("Step channel closed unexpectedly"))),
         }
     }
 }
@@ -95,14 +93,8 @@ impl StorageSetupService {
         let setup_data_clone = setup_data.clone();
 
         runtime.spawn(async move {
-            let result = Self::process_step_async(
-                step,
-                setup_data_clone,
-                repo_path,
-                default_branch,
-                active_profile,
-            )
-            .await;
+            let result =
+                Self::process_step_async(step, setup_data_clone, repo_path, default_branch, active_profile).await;
             let _ = sender.send(result);
         });
 
@@ -124,17 +116,9 @@ impl StorageSetupService {
             GitHubSetupStep::CloningRepo => Self::handle_cloning_repo(setup_data, &repo_path).await,
             GitHubSetupStep::CreatingRepo => Self::handle_creating_repo(setup_data).await,
             GitHubSetupStep::InitializingRepo => {
-                Self::handle_initializing_repo(
-                    setup_data,
-                    &repo_path,
-                    &default_branch,
-                    &active_profile,
-                )
-                .await
+                Self::handle_initializing_repo(setup_data, &repo_path, &default_branch, &active_profile).await
             }
-            GitHubSetupStep::DiscoveringProfiles => {
-                Self::handle_discovering_profiles(setup_data, &repo_path).await
-            }
+            GitHubSetupStep::DiscoveringProfiles => Self::handle_discovering_profiles(setup_data, &repo_path).await,
             GitHubSetupStep::Complete => Self::handle_complete(setup_data, &repo_path).await,
         }
     }
@@ -155,9 +139,7 @@ impl StorageSetupService {
 
         match client.get_user().await {
             Ok(user) => {
-                let repo_exists = client
-                    .repo_exists(&user.login, &setup_data.repo_name)
-                    .await?;
+                let repo_exists = client.repo_exists(&user.login, &setup_data.repo_name).await?;
 
                 setup_data.username = Some(user.login);
                 setup_data.repo_exists = Some(repo_exists);
@@ -179,12 +161,9 @@ impl StorageSetupService {
     /// Handle the `CheckingRepo` step
     async fn handle_checking_repo(setup_data: GitHubSetupData) -> Result<StepResult> {
         // Extract and validate required fields using pattern matching
-        let (Some(username), Some(_repo_exists)) =
-            (setup_data.username.clone(), setup_data.repo_exists)
-        else {
+        let (Some(username), Some(_repo_exists)) = (setup_data.username.clone(), setup_data.repo_exists) else {
             return Ok(StepResult::Failed {
-                error_message: "Internal error: Setup state is invalid. Please try again."
-                    .to_string(),
+                error_message: "Internal error: Setup state is invalid. Please try again.".to_string(),
                 cleanup_repo: false,
             });
         };
@@ -209,33 +188,25 @@ impl StorageSetupService {
     }
 
     /// Handle the `CloningRepo` step
-    async fn handle_cloning_repo(
-        mut setup_data: GitHubSetupData,
-        repo_path: &Path,
-    ) -> Result<StepResult> {
+    async fn handle_cloning_repo(mut setup_data: GitHubSetupData, repo_path: &Path) -> Result<StepResult> {
         let username = match setup_data.username.as_ref() {
             Some(u) => u.clone(),
             None => {
                 return Ok(StepResult::Failed {
-                    error_message: "Internal error: Username not available. Please try again."
-                        .to_string(),
+                    error_message: "Internal error: Username not available. Please try again.".to_string(),
                     cleanup_repo: false,
                 });
             }
         };
 
-        let remote_url = format!(
-            "https://github.com/{}/{}.git",
-            username, setup_data.repo_name
-        );
+        let remote_url = format!("https://github.com/{}/{}.git", username, setup_data.repo_name);
 
         // Clone is a blocking operation, run in spawn_blocking
         let repo_path_clone = repo_path.to_path_buf();
         let token = setup_data.token.clone();
-        let clone_result = tokio::task::spawn_blocking(move || {
-            GitManager::clone_or_open(&remote_url, &repo_path_clone, Some(&token))
-        })
-        .await?;
+        let clone_result =
+            tokio::task::spawn_blocking(move || GitManager::clone_or_open(&remote_url, &repo_path_clone, Some(&token)))
+                .await?;
 
         match clone_result {
             Ok((_, was_existing)) => {
@@ -265,8 +236,7 @@ impl StorageSetupService {
     async fn handle_creating_repo(mut setup_data: GitHubSetupData) -> Result<StepResult> {
         if setup_data.username.is_none() {
             return Ok(StepResult::Failed {
-                error_message: "Internal error: Username not available. Please try again."
-                    .to_string(),
+                error_message: "Internal error: Username not available. Please try again.".to_string(),
                 cleanup_repo: false,
             });
         }
@@ -309,8 +279,7 @@ impl StorageSetupService {
             Some(u) => u.clone(),
             None => {
                 return Ok(StepResult::Failed {
-                    error_message: "Internal error: Username not available. Please try again."
-                        .to_string(),
+                    error_message: "Internal error: Username not available. Please try again.".to_string(),
                     cleanup_repo: false,
                 });
             }
@@ -410,21 +379,16 @@ impl StorageSetupService {
 
         // Before pushing, fetch and merge any remote commits
         if let Err(e) = git_mgr.pull("origin", &current_branch, Some(token)) {
-            info!(
-                "Could not pull from remote (this is normal for new repos): {}",
-                e
-            );
+            info!("Could not pull from remote (this is normal for new repos): {}", e);
         } else {
             info!("Successfully pulled from remote before pushing");
         }
 
-        git_mgr
-            .push("origin", &current_branch, Some(token))
-            .context(
-                "Failed to push to remote. Check your token permissions:\n\
+        git_mgr.push("origin", &current_branch, Some(token)).context(
+            "Failed to push to remote. Check your token permissions:\n\
                      - Fine-grained tokens: needs 'Contents' set to 'Read and write'\n\
                      - Classic tokens: needs 'repo' scope",
-            )?;
+        )?;
 
         if let Err(e) = git_mgr.set_upstream_tracking("origin", &current_branch) {
             // Non-fatal - log and continue
@@ -435,16 +399,12 @@ impl StorageSetupService {
     }
 
     /// Handle the `DiscoveringProfiles` step
-    async fn handle_discovering_profiles(
-        mut setup_data: GitHubSetupData,
-        repo_path: &Path,
-    ) -> Result<StepResult> {
+    async fn handle_discovering_profiles(mut setup_data: GitHubSetupData, repo_path: &Path) -> Result<StepResult> {
         let repo_path_clone = repo_path.to_path_buf();
 
         // Run profile discovery in spawn_blocking
         let discovery_result =
-            tokio::task::spawn_blocking(move || Self::discover_profiles_blocking(&repo_path_clone))
-                .await?;
+            tokio::task::spawn_blocking(move || Self::discover_profiles_blocking(&repo_path_clone)).await?;
 
         match discovery_result {
             Ok((profiles, is_new_created)) => {
@@ -452,10 +412,7 @@ impl StorageSetupService {
                     setup_data.is_new_repo = true;
                 }
 
-                let username = setup_data
-                    .username
-                    .clone()
-                    .unwrap_or_else(|| "user".to_string());
+                let username = setup_data.username.clone().unwrap_or_else(|| "user".to_string());
 
                 let status_message = if profiles.is_empty() {
                     format!(
@@ -493,8 +450,7 @@ impl StorageSetupService {
             if profile_info.synced_files.is_empty() {
                 let profile_dir = repo_path.join(&profile_info.name);
                 if profile_dir.exists() && profile_dir.is_dir() {
-                    profile_info.synced_files =
-                        Self::list_files_in_profile_dir(&profile_dir).unwrap_or_default();
+                    profile_info.synced_files = Self::list_files_in_profile_dir(&profile_dir).unwrap_or_default();
                 }
             }
         }
@@ -549,8 +505,7 @@ impl StorageSetupService {
                         // Convert to string, handling the path properly
                         if let Some(relative_str) = relative.to_str() {
                             // Remove leading ./ if present
-                            let clean_path =
-                                relative_str.strip_prefix("./").unwrap_or(relative_str);
+                            let clean_path = relative_str.strip_prefix("./").unwrap_or(relative_str);
                             entries.push(clean_path.to_string());
                         }
                     }
@@ -565,22 +520,14 @@ impl StorageSetupService {
         let repo_path_clone = repo_path.to_path_buf();
 
         // Load final profile list
-        let profiles_result = tokio::task::spawn_blocking(move || {
-            match ProfileManifest::load_or_backfill(&repo_path_clone) {
-                Ok(manifest) => manifest
-                    .profiles
-                    .iter()
-                    .map(|p| p.name.clone())
-                    .collect::<Vec<_>>(),
+        let profiles_result =
+            tokio::task::spawn_blocking(move || match ProfileManifest::load_or_backfill(&repo_path_clone) {
+                Ok(manifest) => manifest.profiles.iter().map(|p| p.name.clone()).collect::<Vec<_>>(),
                 Err(_) => Vec::new(),
-            }
-        })
-        .await?;
+            })
+            .await?;
 
-        let username = setup_data
-            .username
-            .clone()
-            .unwrap_or_else(|| "user".to_string());
+        let username = setup_data.username.clone().unwrap_or_else(|| "user".to_string());
         let github_config = GitHubConfig {
             owner: username,
             repo: setup_data.repo_name.clone(),

@@ -59,10 +59,7 @@ impl Keymap {
 
         // Add preset bindings that aren't overridden
         for preset_binding in preset_bindings {
-            let is_overridden = self
-                .overrides
-                .iter()
-                .any(|o| o.action == preset_binding.action);
+            let is_overridden = self.overrides.iter().any(|o| o.action == preset_binding.action);
             if !is_overridden {
                 bindings.push(preset_binding);
             }
@@ -110,12 +107,7 @@ impl Keymap {
         }
 
         // Check preset
-        if let Some(binding) = self
-            .preset
-            .bindings()
-            .into_iter()
-            .find(|b| b.action == action)
-        {
+        if let Some(binding) = self.preset.bindings().into_iter().find(|b| b.action == action) {
             return binding.display();
         }
 

@@ -18,7 +18,8 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
     // --- Shell & environment ---
     DotfileCandidate {
         path: ".profile",
-        description: "Login shell initialization file used by POSIX-compatible shells. Common place for environment variables.",
+        description:
+            "Login shell initialization file used by POSIX-compatible shells. Common place for environment variables.",
     },
     DotfileCandidate {
         path: ".bashrc",
@@ -60,7 +61,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".dircolors",
         description: "Color configuration for `ls` and other GNU coreutils.",
     },
-
     // --- Editors ---
     DotfileCandidate {
         path: ".vimrc",
@@ -86,7 +86,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".config/nano",
         description: "Nano editor configuration directory.",
     },
-
     // --- Git & version control ---
     DotfileCandidate {
         path: ".gitconfig",
@@ -108,7 +107,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".gitmessage",
         description: "Git commit message template.",
     },
-
     // --- Terminal & multiplexers ---
     DotfileCandidate {
         path: ".tmux.conf",
@@ -126,7 +124,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".config/less",
         description: "Configuration for the `less` pager.",
     },
-
     // --- Terminal emulators ---
     DotfileCandidate {
         path: ".config/alacritty",
@@ -144,7 +141,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".config/foot",
         description: "Foot terminal emulator configuration.",
     },
-
     // --- CLI UX tools ---
     DotfileCandidate {
         path: ".config/starship.toml",
@@ -174,7 +170,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".envrc",
         description: "Per-directory environment variables managed by direnv.",
     },
-
     // --- SSH & crypto (config only) ---
     DotfileCandidate {
         path: ".ssh/config",
@@ -196,7 +191,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".gnupg/gpg-agent.conf",
         description: "GnuPG agent configuration.",
     },
-
     // --- Language & package managers ---
     DotfileCandidate {
         path: ".npmrc",
@@ -234,7 +228,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".pyenvrc",
         description: "pyenv shell integration configuration.",
     },
-
     // --- OS / desktop ---
     DotfileCandidate {
         path: ".config/fontconfig",
@@ -248,7 +241,6 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
         path: ".config/systemd/user",
         description: "User-level systemd services and timers.",
     },
-
     // --- AI tools ---
     // Antigravity
     DotfileCandidate {
@@ -304,16 +296,13 @@ pub const DEFAULT_DOTFILES: &[DotfileCandidate] = &[
     DotfileCandidate {
         path: ".agents/skills/",
         description: "Agent global skills directory.",
-    }
+    },
 ];
 
 /// Get default dotfile paths as a Vec<String>
 #[must_use]
 pub fn get_default_dotfile_paths() -> Vec<String> {
-    DEFAULT_DOTFILES
-        .iter()
-        .map(DotfileCandidate::path_string)
-        .collect()
+    DEFAULT_DOTFILES.iter().map(DotfileCandidate::path_string).collect()
 }
 
 /// Find a dotfile candidate by path

@@ -123,10 +123,7 @@ fn print_header(title: &str) {
     let width = 60;
     let padding = (width - title.len() - 2) / 2;
     println!();
-    println!(
-        "{}",
-        format!("╭{}╮", "─".repeat(width - 2)).with(Color::DarkCyan)
-    );
+    println!("{}", format!("╭{}╮", "─".repeat(width - 2)).with(Color::DarkCyan));
     println!(
         "{}",
         format!(
@@ -139,10 +136,7 @@ fn print_header(title: &str) {
         .with(Color::DarkCyan)
         .attribute(Attribute::Bold)
     );
-    println!(
-        "{}",
-        format!("╰{}╯", "─".repeat(width - 2)).with(Color::DarkCyan)
-    );
+    println!("{}", format!("╰{}╯", "─".repeat(width - 2)).with(Color::DarkCyan));
     println!();
 }
 
@@ -176,10 +170,7 @@ fn status_icon(status: &ValidationStatus) -> String {
 
 fn print_check_result(result: &ValidationResult, verbose: bool) {
     let icon = status_icon(&result.status);
-    let duration = format!(
-        "({})",
-        format_duration(Duration::from_millis(result.duration_ms))
-    );
+    let duration = format!("({})", format_duration(Duration::from_millis(result.duration_ms)));
 
     let message_color = match result.status {
         ValidationStatus::Pass => Color::White,
@@ -265,9 +256,7 @@ fn print_summary(summary: &DoctorSummary, fix_mode: bool) {
     if summary.errors > 0 {
         println!(
             "\n  ❌ {}",
-            "Some issues need attention"
-                .with(Color::Red)
-                .attribute(Attribute::Bold)
+            "Some issues need attention".with(Color::Red).attribute(Attribute::Bold)
         );
     } else if summary.warnings > 0 {
         println!(
@@ -305,10 +294,7 @@ impl Doctor {
     pub fn run_diagnostics(&mut self) -> Result<DoctorReport> {
         if !self.options.json_output {
             print_header("DotState Doctor");
-            println!(
-                "  {} Running comprehensive diagnostics...",
-                "🔍".with(Color::Cyan)
-            );
+            println!("  {} Running comprehensive diagnostics...", "🔍".with(Color::Cyan));
             io::stdout().flush()?;
         }
 
@@ -748,9 +734,7 @@ impl Doctor {
 
         if let Ok(output) = output {
             if output.status.success() {
-                let fmt = String::from_utf8_lossy(&output.stdout)
-                    .trim()
-                    .to_lowercase();
+                let fmt = String::from_utf8_lossy(&output.stdout).trim().to_lowercase();
                 if fmt == "sha256" {
                     self.add_result(
                         "Repository",
@@ -866,15 +850,7 @@ impl Doctor {
                             ValidationStatus::Pass
                         };
 
-                        self.add_result(
-                            "Repository",
-                            "git_branch",
-                            &message,
-                            status,
-                            None,
-                            None,
-                            start,
-                        );
+                        self.add_result("Repository", "git_branch", &message, status, None, None, start);
                     } else {
                         self.add_result(
                             "Repository",
@@ -939,11 +915,7 @@ impl Doctor {
                 // Check active profile exists
                 if !self.config.active_profile.is_empty() {
                     let start = Instant::now();
-                    if let Some(profile) = manifest
-                        .profiles
-                        .iter()
-                        .find(|p| p.name == self.config.active_profile)
-                    {
+                    if let Some(profile) = manifest.profiles.iter().find(|p| p.name == self.config.active_profile) {
                         self.add_result(
                             "Profiles",
                             "active_profile_exists",
@@ -960,10 +932,7 @@ impl Doctor {
                         self.add_result(
                             "Profiles",
                             "active_profile_exists",
-                            &format!(
-                                "Active profile '{}' not found in manifest",
-                                self.config.active_profile
-                            ),
+                            &format!("Active profile '{}' not found in manifest", self.config.active_profile),
                             ValidationStatus::Error,
                             None,
                             None,
@@ -1131,9 +1100,7 @@ impl Doctor {
                 "No profile currently active",
                 ValidationStatus::Pass,
                 None,
-                Some(vec![
-                    "Run 'dotstate activate' to enable symlinks".to_string()
-                ]),
+                Some(vec!["Run 'dotstate activate' to enable symlinks".to_string()]),
                 start,
             );
         }
@@ -1212,11 +1179,7 @@ impl Doctor {
             let mut expected = HashSet::new();
 
             // Add active profile files
-            if let Some(profile) = manifest
-                .profiles
-                .iter()
-                .find(|p| p.name == self.config.active_profile)
-            {
+            if let Some(profile) = manifest.profiles.iter().find(|p| p.name == self.config.active_profile) {
                 for file in &profile.synced_files {
                     expected.insert(file.clone());
                 }
@@ -1229,11 +1192,7 @@ impl Doctor {
 
             let mut untracked = Vec::new();
             for exp in expected {
-                let is_tracked = symlink_mgr
-                    .tracking
-                    .symlinks
-                    .iter()
-                    .any(|s| s.source.ends_with(&exp));
+                let is_tracked = symlink_mgr.tracking.symlinks.iter().any(|s| s.source.ends_with(&exp));
                 if !is_tracked {
                     untracked.push(exp);
                 }
@@ -1277,10 +1236,9 @@ impl Doctor {
             match classify_symlink(tracked) {
                 SymlinkHealth::Ok => {}
                 SymlinkHealth::Missing => broken.push(tracked.target.display().to_string()),
-                SymlinkHealth::NotASymlink => invalid.push(format!(
-                    "{} exists but is not a symlink",
-                    tracked.target.display()
-                )),
+                SymlinkHealth::NotASymlink => {
+                    invalid.push(format!("{} exists but is not a symlink", tracked.target.display()))
+                }
                 SymlinkHealth::WrongTarget(link_target) => invalid.push(format!(
                     "{} -> {} (expected {})",
                     tracked.target.display(),
@@ -1294,12 +1252,7 @@ impl Doctor {
         if !dangling.is_empty() {
             // Name the files in the message itself: these are silent breakages
             // the user must fix by hand, so they should not need --verbose.
-            let mut names = dangling
-                .iter()
-                .take(3)
-                .cloned()
-                .collect::<Vec<_>>()
-                .join(", ");
+            let mut names = dangling.iter().take(3).cloned().collect::<Vec<_>>().join(", ");
             if dangling.len() > 3 {
                 names.push_str(&format!(" and {} more", dangling.len() - 3));
             }
@@ -1391,9 +1344,7 @@ impl Doctor {
                 "Backups are disabled in settings",
                 ValidationStatus::Warning,
                 None,
-                Some(vec![
-                    "Enable backups in settings to protect your files".to_string()
-                ]),
+                Some(vec!["Enable backups in settings to protect your files".to_string()]),
                 start,
             );
         }
@@ -1694,9 +1645,7 @@ impl Doctor {
             println!(
                 "{} {} {}",
                 "🔧".with(Color::Cyan),
-                "Applying fixes"
-                    .with(Color::Cyan)
-                    .attribute(Attribute::Bold),
+                "Applying fixes".with(Color::Cyan).attribute(Attribute::Bold),
                 format!("({} issues)", fixable.len()).with(Color::DarkGrey)
             );
             println!("{}", "─".repeat(50).with(Color::DarkGrey));
@@ -1742,11 +1691,7 @@ impl Doctor {
                 if self.config.active_profile.is_empty() {
                     Ok(false)
                 } else {
-                    ProfileService::activate_profile(
-                        &self.config.repo_path,
-                        &self.config.active_profile,
-                        false,
-                    )?;
+                    ProfileService::activate_profile(&self.config.repo_path, &self.config.active_profile, false)?;
                     Ok(true)
                 }
             }
@@ -1832,10 +1777,7 @@ mod tests {
         let target = dir.path().join(".bashrc");
         fs::write(&source, "x").unwrap();
         symlink(&source, &target).unwrap();
-        assert_eq!(
-            classify_symlink(&tracked(&target, &source)),
-            SymlinkHealth::Ok
-        );
+        assert_eq!(classify_symlink(&tracked(&target, &source)), SymlinkHealth::Ok);
     }
 
     #[test]
@@ -1846,10 +1788,7 @@ mod tests {
         fs::write(&source, "x").unwrap();
         symlink(&source, &target).unwrap();
         fs::remove_file(&source).unwrap();
-        assert_eq!(
-            classify_symlink(&tracked(&target, &source)),
-            SymlinkHealth::Dangling
-        );
+        assert_eq!(classify_symlink(&tracked(&target, &source)), SymlinkHealth::Dangling);
     }
 
     #[test]
@@ -1861,10 +1800,7 @@ mod tests {
         fs::write(&other, "y").unwrap();
 
         let missing = dir.path().join("missing");
-        assert_eq!(
-            classify_symlink(&tracked(&missing, &source)),
-            SymlinkHealth::Missing
-        );
+        assert_eq!(classify_symlink(&tracked(&missing, &source)), SymlinkHealth::Missing);
 
         let wrong = dir.path().join("wrong");
         symlink(&other, &wrong).unwrap();

@@ -18,12 +18,7 @@ impl Header {
     ///
     /// # Returns
     /// The height of the header (for layout calculations)
-    pub fn render(
-        frame: &mut Frame,
-        area: Rect,
-        title: &str,
-        description: &str,
-    ) -> Result<u16, anyhow::Error> {
+    pub fn render(frame: &mut Frame, area: Rect, title: &str, description: &str) -> Result<u16, anyhow::Error> {
         let app_version = env!("CARGO_PKG_VERSION");
         let t = theme();
         // Main header block with theme border, padding, and title

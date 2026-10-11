@@ -26,18 +26,13 @@ fn test_validation_prevents_file_inside_synced_directory() {
     let file_path = PathBuf::from("/home/user/.nvim/init.lua");
     let relative_path = ".nvim/init.lua";
 
-    let result =
-        sync_validation::validate_before_sync(relative_path, &file_path, &synced_files, repo_path);
+    let result = sync_validation::validate_before_sync(relative_path, &file_path, &synced_files, repo_path);
 
     assert!(!result.is_safe, "Should block file inside synced directory");
-    assert!(
-        result.error_message.is_some(),
-        "Should provide error message"
-    );
+    assert!(result.error_message.is_some(), "Should provide error message");
     let error_msg = result.error_message.unwrap();
     assert!(
-        error_msg.contains("already inside a synced directory")
-            || error_msg.contains("synced directory"),
+        error_msg.contains("already inside a synced directory") || error_msg.contains("synced directory"),
         "Error message should mention synced directory, got: {error_msg}"
     );
 }
@@ -58,17 +53,13 @@ fn test_validation_prevents_directory_containing_synced_files() {
     std::fs::create_dir_all(&dir_path).unwrap();
     let relative_path = ".nvim";
 
-    let result =
-        sync_validation::validate_before_sync(relative_path, &dir_path, &synced_files, repo_path);
+    let result = sync_validation::validate_before_sync(relative_path, &dir_path, &synced_files, repo_path);
 
     assert!(
         !result.is_safe,
         "Should block directory containing synced files. Synced: {synced_files:?}, Trying to add: {relative_path}"
     );
-    assert!(
-        result.error_message.is_some(),
-        "Should provide error message"
-    );
+    assert!(result.error_message.is_some(), "Should provide error message");
     let error_msg = result.error_message.unwrap();
     assert!(
         error_msg.contains("contains files") || error_msg.contains("already synced"),
@@ -96,8 +87,7 @@ fn test_validation_handles_path_normalization() {
     synced_files.clear();
     synced_files.insert(".nvim".to_string());
 
-    let result =
-        sync_validation::validate_before_sync(relative_path, &file_path, &synced_files, repo_path);
+    let result = sync_validation::validate_before_sync(relative_path, &file_path, &synced_files, repo_path);
 
     assert!(!result.is_safe, "Should block file inside synced directory");
 }
@@ -116,14 +106,10 @@ fn test_validation_detects_git_repositories() {
     let synced_files = HashSet::new();
     let relative_path = "my-project";
 
-    let result =
-        sync_validation::validate_before_sync(relative_path, &git_dir, &synced_files, repo_path);
+    let result = sync_validation::validate_before_sync(relative_path, &git_dir, &synced_files, repo_path);
 
     assert!(!result.is_safe, "Should block git repository");
-    assert!(
-        result.error_message.is_some(),
-        "Should provide error message"
-    );
+    assert!(result.error_message.is_some(), "Should provide error message");
     assert!(
         result.error_message.unwrap().to_lowercase().contains("git"),
         "Error message should mention git"
@@ -140,8 +126,7 @@ fn test_validation_allows_safe_files() {
     let file_path = PathBuf::from("/home/user/.zshrc");
     let relative_path = ".zshrc";
 
-    let result =
-        sync_validation::validate_before_sync(relative_path, &file_path, &synced_files, repo_path);
+    let result = sync_validation::validate_before_sync(relative_path, &file_path, &synced_files, repo_path);
 
     assert!(result.is_safe, "Should allow safe files");
 }
@@ -167,10 +152,7 @@ fn test_symlink_validation_checks_source_exists() {
     )
     .unwrap();
 
-    assert!(
-        result.is_safe,
-        "Should allow symlink creation when source exists"
-    );
+    assert!(result.is_safe, "Should allow symlink creation when source exists");
 }
 
 /// Test that symlink validation fails when source doesn't exist
@@ -190,14 +172,8 @@ fn test_symlink_validation_fails_when_source_missing() {
     )
     .unwrap();
 
-    assert!(
-        !result.is_safe,
-        "Should block symlink when source doesn't exist"
-    );
-    assert!(
-        result.error_message.is_some(),
-        "Should provide error message"
-    );
+    assert!(!result.is_safe, "Should block symlink when source doesn't exist");
+    assert!(result.error_message.is_some(), "Should provide error message");
 }
 
 // TODO: Full end-to-end integration test

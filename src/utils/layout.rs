@@ -10,11 +10,7 @@ use ratatui::prelude::*;
 /// # Returns
 /// Tuple of (`header_area`, `content_area`, `footer_area`)
 #[must_use]
-pub fn create_standard_layout(
-    area: Rect,
-    header_height: u16,
-    footer_height: u16,
-) -> (Rect, Rect, Rect) {
+pub fn create_standard_layout(area: Rect, header_height: u16, footer_height: u16) -> (Rect, Rect, Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -37,10 +33,7 @@ pub fn create_standard_layout(
 /// Vector of Rects for each section
 #[must_use]
 pub fn create_split_layout(area: Rect, percentages: &[u16]) -> Vec<Rect> {
-    let constraints: Vec<Constraint> = percentages
-        .iter()
-        .map(|&p| Constraint::Percentage(p))
-        .collect();
+    let constraints: Vec<Constraint> = percentages.iter().map(|&p| Constraint::Percentage(p)).collect();
 
     Layout::default()
         .direction(Direction::Horizontal)

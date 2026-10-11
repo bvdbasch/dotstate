@@ -53,11 +53,7 @@ pub fn contains_git_repo(path: &Path) -> bool {
     }
 
     // Check all parent directories
-    let mut current = if path.is_dir() {
-        Some(path)
-    } else {
-        path.parent()
-    };
+    let mut current = if path.is_dir() { Some(path) } else { path.parent() };
 
     while let Some(dir) = current {
         if dir.join(".git").exists() {
@@ -93,8 +89,7 @@ pub fn contains_nested_git_repo(path: &Path) -> Result<bool> {
             return Ok(true);
         }
 
-        let entries =
-            std::fs::read_dir(dir).with_context(|| format!("Failed to read directory: {dir:?}"))?;
+        let entries = std::fs::read_dir(dir).with_context(|| format!("Failed to read directory: {dir:?}"))?;
 
         for entry in entries {
             let entry = entry?;
@@ -302,10 +297,7 @@ impl SymlinkValidationResult {
 
     #[must_use]
     pub fn unsafe_with(issues: Vec<SymlinkIssue>) -> Self {
-        Self {
-            is_safe: false,
-            issues,
-        }
+        Self { is_safe: false, issues }
     }
 }
 
@@ -333,10 +325,7 @@ pub fn validate_directory_symlinks(source_dir: &Path) -> Result<SymlinkValidatio
         .canonicalize()
         .with_context(|| format!("Failed to canonicalize source directory: {source_dir:?}"))?;
 
-    info!(
-        "Validating symlinks in directory: {:?}",
-        source_dir.display()
-    );
+    info!("Validating symlinks in directory: {:?}", source_dir.display());
 
     let mut issues = Vec::new();
     let mut visited_paths: HashSet<PathBuf> = HashSet::new();
@@ -347,11 +336,7 @@ pub fn validate_directory_symlinks(source_dir: &Path) -> Result<SymlinkValidatio
         debug!("No symlink issues found in {:?}", source_dir);
         Ok(SymlinkValidationResult::safe())
     } else {
-        warn!(
-            "Found {} symlink issue(s) in {:?}",
-            issues.len(),
-            source_dir
-        );
+        warn!("Found {} symlink issue(s) in {:?}", issues.len(), source_dir);
         for issue in &issues {
             warn!("  - {}", issue);
         }
@@ -376,9 +361,7 @@ fn validate_symlinks_recursive(
     }
 
     // Check for circular reference at directory level
-    let canonical_current = current_dir
-        .canonicalize()
-        .unwrap_or_else(|_| current_dir.to_path_buf());
+    let canonical_current = current_dir.canonicalize().unwrap_or_else(|_| current_dir.to_path_buf());
     if !visited_paths.insert(canonical_current.clone()) {
         debug!("Already visited {:?}, skipping", current_dir);
         return Ok(());
@@ -419,11 +402,7 @@ fn validate_symlinks_recursive(
 }
 
 /// Validate a single symlink
-fn validate_single_symlink(
-    symlink_path: &Path,
-    root_dir: &Path,
-    issues: &mut Vec<SymlinkIssue>,
-) -> Result<()> {
+fn validate_single_symlink(symlink_path: &Path, root_dir: &Path, issues: &mut Vec<SymlinkIssue>) -> Result<()> {
     debug!("Validating symlink: {:?}", symlink_path);
 
     // Read the symlink target
@@ -457,10 +436,7 @@ fn validate_single_symlink(
     let canonical_target = match resolved_target.canonicalize() {
         Ok(p) => p,
         Err(e) => {
-            warn!(
-                "Failed to canonicalize symlink target {:?}: {}",
-                resolved_target, e
-            );
+            warn!("Failed to canonicalize symlink target {:?}: {}", resolved_target, e);
             return Ok(());
         }
     };
@@ -574,19 +550,14 @@ pub fn validate_before_sync(
     synced_files: &HashSet<String>,
     repo_path: &Path,
 ) -> ValidationResult {
-    debug!(
-        "Validating path before sync: {} ({:?})",
-        relative_path, full_path
-    );
+    debug!("Validating path before sync: {} ({:?})", relative_path, full_path);
 
     // Normalize the relative path
     let normalized = relative_path.strip_prefix("./").unwrap_or(relative_path);
 
     // Check if already synced
     if synced_files.contains(normalized) {
-        return ValidationResult::unsafe_with(format!(
-            "File or directory is already synced: {normalized}"
-        ));
+        return ValidationResult::unsafe_with(format!("File or directory is already synced: {normalized}"));
     }
 
     // Check if file is inside a synced directory
@@ -632,8 +603,7 @@ pub fn validate_before_sync(
         // Check for problematic symlinks in the directory
         match validate_directory_symlinks(full_path) {
             Ok(result) if !result.is_safe => {
-                let issue_descriptions: Vec<String> =
-                    result.issues.iter().map(|i| format!("  • {i}")).collect();
+                let issue_descriptions: Vec<String> = result.issues.iter().map(|i| format!("  • {i}")).collect();
                 return ValidationResult::unsafe_with(format!(
                     "Cannot sync directory '{}': it contains problematic symlinks.\n\n\
                      Issues found:\n{}\n\n\
@@ -653,9 +623,7 @@ pub fn validate_before_sync(
     // Basic safety checks
     let (is_safe, reason) = crate::utils::is_safe_to_add(full_path, repo_path);
     if !is_safe {
-        return ValidationResult::unsafe_with(
-            reason.unwrap_or_else(|| "Path is not safe to add".to_string()),
-        );
+        return ValidationResult::unsafe_with(reason.unwrap_or_else(|| "Path is not safe to add".to_string()));
     }
 
     ValidationResult::safe()
@@ -814,26 +782,14 @@ mod tests {
         assert!(is_file_inside_synced_directory("./nvim/init.lua", &synced));
         assert!(is_file_inside_synced_directory("nvim/init.lua", &synced));
         assert!(is_file_inside_synced_directory(".nvim/init.lua", &synced));
-        assert!(is_file_inside_synced_directory(
-            ".nvim/config/init.lua",
-            &synced
-        ));
-        assert!(is_file_inside_synced_directory(
-            "nvim/config/init.lua",
-            &synced
-        ));
+        assert!(is_file_inside_synced_directory(".nvim/config/init.lua", &synced));
+        assert!(is_file_inside_synced_directory("nvim/config/init.lua", &synced));
 
         // Test with synced as "nvim" (no dot)
         let mut synced_no_dot = HashSet::new();
         synced_no_dot.insert("nvim".to_string());
-        assert!(is_file_inside_synced_directory(
-            ".nvim/init.lua",
-            &synced_no_dot
-        ));
-        assert!(is_file_inside_synced_directory(
-            "nvim/init.lua",
-            &synced_no_dot
-        ));
+        assert!(is_file_inside_synced_directory(".nvim/init.lua", &synced_no_dot));
+        assert!(is_file_inside_synced_directory("nvim/init.lua", &synced_no_dot));
     }
 
     #[test]
@@ -842,18 +798,12 @@ mod tests {
         synced.insert(".config".to_string());
 
         // Deep nesting
-        assert!(is_file_inside_synced_directory(
-            ".config/nvim/init.lua",
-            &synced
-        ));
+        assert!(is_file_inside_synced_directory(".config/nvim/init.lua", &synced));
         assert!(is_file_inside_synced_directory(
             ".config/nvim/lua/plugins/init.lua",
             &synced
         ));
-        assert!(is_file_inside_synced_directory(
-            "config/nvim/init.lua",
-            &synced
-        ));
+        assert!(is_file_inside_synced_directory("config/nvim/init.lua", &synced));
     }
 
     #[test]
@@ -998,20 +948,11 @@ mod tests {
         synced.insert(".config/nvim".to_string());
 
         // Try to sync a file inside it - should fail
-        let file_path = temp_dir
-            .path()
-            .join(".config")
-            .join("nvim")
-            .join("init.lua");
+        let file_path = temp_dir.path().join(".config").join("nvim").join("init.lua");
         std::fs::create_dir_all(file_path.parent().unwrap()).unwrap();
         File::create(&file_path).unwrap();
 
-        let result = validate_before_sync(
-            ".config/nvim/init.lua",
-            &file_path,
-            &synced,
-            temp_dir.path(),
-        );
+        let result = validate_before_sync(".config/nvim/init.lua", &file_path, &synced, temp_dir.path());
         assert!(!result.is_safe);
     }
 
@@ -1041,14 +982,8 @@ mod tests {
         synced.insert(".nvim/init.lua".to_string());
 
         // Sibling file should be OK
-        assert!(!is_file_inside_synced_directory(
-            ".nvim/config.lua",
-            &synced
-        ));
-        assert!(!is_file_inside_synced_directory(
-            ".nvim/colors.vim",
-            &synced
-        ));
+        assert!(!is_file_inside_synced_directory(".nvim/config.lua", &synced));
+        assert!(!is_file_inside_synced_directory(".nvim/colors.vim", &synced));
     }
 
     #[test]
@@ -1067,10 +1002,7 @@ mod tests {
         synced.insert(".config".to_string());
 
         // Paths with .. components (should still work)
-        assert!(is_file_inside_synced_directory(
-            ".config/../.config/file",
-            &synced
-        ));
+        assert!(is_file_inside_synced_directory(".config/../.config/file", &synced));
     }
 
     #[test]
@@ -1311,10 +1243,7 @@ mod tests {
         assert!(!result.is_safe);
         assert!(!result.issues.is_empty());
         // Should be detected as circular (points to parent of symlink location)
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| matches!(i, SymlinkIssue::Circular { .. })));
+        assert!(result.issues.iter().any(|i| matches!(i, SymlinkIssue::Circular { .. })));
     }
 
     #[test]
@@ -1332,10 +1261,7 @@ mod tests {
         assert!(!result.is_safe);
         assert!(!result.issues.is_empty());
         // Should be detected as circular
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| matches!(i, SymlinkIssue::Circular { .. })));
+        assert!(result.issues.iter().any(|i| matches!(i, SymlinkIssue::Circular { .. })));
     }
 
     #[test]
@@ -1358,10 +1284,7 @@ mod tests {
         assert!(!result.is_safe);
         assert!(!result.issues.is_empty());
         // Should be detected as external
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| matches!(i, SymlinkIssue::External { .. })));
+        assert!(result.issues.iter().any(|i| matches!(i, SymlinkIssue::External { .. })));
     }
 
     #[test]
@@ -1418,10 +1341,7 @@ mod tests {
 
         let result = validate_directory_symlinks(&test_dir).unwrap();
         assert!(!result.is_safe);
-        assert!(result
-            .issues
-            .iter()
-            .any(|i| matches!(i, SymlinkIssue::Broken { .. })));
+        assert!(result.issues.iter().any(|i| matches!(i, SymlinkIssue::Broken { .. })));
     }
 
     #[test]
@@ -1479,10 +1399,7 @@ mod tests {
 
         let result = validate_before_sync(".config", &test_dir, &HashSet::new(), temp_dir.path());
         assert!(!result.is_safe);
-        assert!(result
-            .error_message
-            .unwrap()
-            .contains("problematic symlinks"));
+        assert!(result.error_message.unwrap().contains("problematic symlinks"));
     }
 
     #[test]
@@ -1498,10 +1415,7 @@ mod tests {
 
         let result = validate_before_sync(".config", &test_dir, &HashSet::new(), temp_dir.path());
         assert!(!result.is_safe);
-        assert!(result
-            .error_message
-            .unwrap()
-            .contains("problematic symlinks"));
+        assert!(result.error_message.unwrap().contains("problematic symlinks"));
     }
 
     #[test]

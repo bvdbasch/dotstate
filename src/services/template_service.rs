@@ -3,19 +3,22 @@
 //! This module provides a service layer for template-related operations,
 //! abstracting rendering details from the UI and CLI layers.
 //!
-//! A template is a committed source file in the repo that is rendered to an
-//! arbitrary destination path by a built-in engine (e.g. 1Password's
-//! `op inject`) or a custom user-supplied command. The rendered output is NOT
-//! symlinked or tracked by `DotState` — it is produced on demand and is expected
-//! to be git-ignored at its destination.
+//! A template is a committed source file that is rendered to a home-relative
+//! destination by a built-in engine (e.g. 1Password's `op inject`) or a custom
+//! user-supplied command. The source lives in the repo under a profile subtree,
+//! `<repo>/templates/<profile>/<destination>.<ext>` (mirroring how synced files
+//! live under `<repo>/<profile>/<path>`), so the source path is *derived* from
+//! the destination, engine, and owning profile rather than stored. The rendered
+//! output is NOT symlinked or tracked by `DotState`; it is produced on demand
+//! and is expected to be git-ignored at its destination.
 
 use crate::utils::path::expand_path;
-use crate::utils::profile_manifest::{Template, TemplateEngine};
+use crate::utils::profile_manifest::{ResolvedTemplate, Template, TemplateEngine};
 use crate::utils::template_engine::TemplateEngineImpl;
 use crate::utils::ProfileManifest;
 use anyhow::Result;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::mpsc;
 use std::thread;
@@ -62,12 +65,16 @@ pub struct RenderOutcome {
 }
 
 /// Parameters for creating a template.
+///
+/// The source path is not supplied: it is derived from the destination, engine
+/// (extension), and owning profile. `extension` is only honored for the
+/// `Custom` engine; built-in engines derive their extension from the engine.
 #[derive(Debug)]
 pub struct TemplateCreationParams<'a> {
     pub name: &'a str,
-    pub source: &'a str,
     pub destination: &'a str,
     pub engine: TemplateEngine,
+    pub extension: &'a str,
     pub render_command: &'a str,
     pub description: &'a str,
 }
@@ -76,6 +83,28 @@ pub struct TemplateCreationParams<'a> {
 pub struct TemplateService;
 
 impl TemplateService {
+    /// Absolute path to a template's source file in the repo, given the profile
+    /// that owns it (`templates/<source_profile>/<destination>.<ext>`).
+    #[must_use]
+    pub fn source_abs_path(repo_path: &Path, source_profile: &str, template: &Template) -> PathBuf {
+        repo_path.join(template.source_relative_path(source_profile))
+    }
+
+    /// Create the source template file if it does not already exist, including
+    /// parent directories. Returns `true` if a new stub was created.
+    pub fn ensure_source_stub(repo_path: &Path, source_profile: &str, template: &Template) -> Result<bool> {
+        let path = Self::source_abs_path(repo_path, source_profile, template);
+        if path.exists() {
+            return Ok(false);
+        }
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&path, "")?;
+        info!("Created template source stub: {}", path.display());
+        Ok(true)
+    }
+
     /// Update an owned template by its index in the profile (not the resolved list).
     pub fn update_template(repo_path: &Path, profile_name: &str, index: usize, template: Template) -> Result<()> {
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
@@ -113,10 +142,11 @@ impl TemplateService {
                 error_message: Some("Template name cannot be empty".to_string()),
             };
         }
-        if params.source.trim().is_empty() {
+        // Names must not carry an extension; the engine decides that.
+        if params.name.trim().contains('.') {
             return TemplateValidation {
                 is_valid: false,
-                error_message: Some("Template source cannot be empty".to_string()),
+                error_message: Some("Template name must not include a file extension".to_string()),
             };
         }
         if params.destination.trim().is_empty() {
@@ -125,11 +155,19 @@ impl TemplateService {
                 error_message: Some("Template destination cannot be empty".to_string()),
             };
         }
-        if params.engine == TemplateEngine::Custom && params.render_command.trim().is_empty() {
-            return TemplateValidation {
-                is_valid: false,
-                error_message: Some("Custom engine requires a non-empty render command".to_string()),
-            };
+        if params.engine == TemplateEngine::Custom {
+            if params.render_command.trim().is_empty() {
+                return TemplateValidation {
+                    is_valid: false,
+                    error_message: Some("Custom engine requires a non-empty render command".to_string()),
+                };
+            }
+            if params.extension.trim().is_empty() {
+                return TemplateValidation {
+                    is_valid: false,
+                    error_message: Some("Custom engine requires a source file extension".to_string()),
+                };
+            }
         }
 
         TemplateValidation {
@@ -143,26 +181,29 @@ impl TemplateService {
     pub fn create_template(params: TemplateCreationParams) -> Template {
         let render_command = if params.engine == TemplateEngine::Custom {
             let trimmed = params.render_command.trim();
-            if trimmed.is_empty() {
-                None
-            } else {
-                Some(trimmed.to_string())
-            }
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
         } else {
             None
         };
 
-        let description = if params.description.trim().is_empty() {
-            None
+        // Only the Custom engine stores an extension; built-ins derive it.
+        let extension = if params.engine == TemplateEngine::Custom {
+            let trimmed = params.extension.trim().trim_start_matches('.');
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
         } else {
-            Some(params.description.trim().to_string())
+            None
+        };
+
+        let description = {
+            let trimmed = params.description.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
         };
 
         Template {
             name: params.name.trim().to_string(),
-            source: params.source.trim().to_string(),
-            destination: params.destination.trim().to_string(),
+            destination: params.destination.trim().trim_start_matches('/').to_string(),
             engine: params.engine,
+            extension,
             render_command,
             description,
         }
@@ -215,10 +256,25 @@ impl TemplateService {
         }
     }
 
-    /// Get the templates resolved for a profile (walking the inheritance chain).
-    pub fn get_templates(repo_path: &Path, profile_name: &str) -> Result<Vec<Template>> {
+    /// Get the templates resolved for a profile (walking the inheritance chain
+    /// and merging common templates).
+    pub fn get_templates(repo_path: &Path, profile_name: &str) -> Result<Vec<ResolvedTemplate>> {
         let manifest = ProfileManifest::load_or_backfill(repo_path)?;
         manifest.resolve_templates(profile_name)
+    }
+
+    /// Get a profile's own templates (unsorted, as stored in the manifest).
+    ///
+    /// Useful for resolving a stable index into the manifest list for
+    /// update/delete, independent of the sorted resolved view.
+    pub fn profile_templates(repo_path: &Path, profile_name: &str) -> Result<Vec<Template>> {
+        let manifest = ProfileManifest::load_or_backfill(repo_path)?;
+        Ok(manifest
+            .profiles
+            .into_iter()
+            .find(|p| p.name == profile_name)
+            .map(|p| p.templates)
+            .unwrap_or_default())
     }
 
     /// Check whether a template's destination file exists on disk.
@@ -237,19 +293,34 @@ impl TemplateService {
         }
     }
 
-    /// Render a single template, executing its engine command and streaming
-    /// combined stdout/stderr into the returned outcome.
+    /// Render a single resolved template, executing its engine command and
+    /// streaming combined stdout/stderr into the returned outcome.
     ///
     /// # Errors
     /// - If the render command cannot be built (e.g. Custom without a command).
+    /// - If the source template file is missing.
     /// - If the child process cannot be spawned.
-    pub fn render_template(repo_path: &Path, template: &Template) -> Result<RenderOutcome> {
+    pub fn render_template(repo_path: &Path, resolved: &ResolvedTemplate) -> Result<RenderOutcome> {
+        let template = &resolved.template;
+        let source_abs = Self::source_abs_path(repo_path, &resolved.source_profile, template);
+
         info!(
-            "Rendering template '{}' -> {} (engine: {:?})",
-            template.name, template.destination, template.engine
+            "Rendering template '{}' ({} -> {}) engine={:?}",
+            template.name,
+            source_abs.display(),
+            template.destination,
+            template.engine
         );
 
-        let mut cmd = TemplateEngineImpl::build_render_command(template, repo_path)?;
+        if !source_abs.exists() {
+            return Ok(RenderOutcome {
+                success: false,
+                output: Vec::new(),
+                error: Some(format!("Source template file is missing: {}", source_abs.display())),
+            });
+        }
+
+        let mut cmd = TemplateEngineImpl::build_render_command(template, &source_abs)?;
 
         let mut child = cmd
             .stdin(Stdio::null())
@@ -313,12 +384,17 @@ impl TemplateService {
 mod tests {
     use super::*;
 
-    fn params<'a>(name: &'a str, engine: TemplateEngine, render_command: &'a str) -> TemplateCreationParams<'a> {
+    fn params<'a>(
+        name: &'a str,
+        engine: TemplateEngine,
+        render_command: &'a str,
+        extension: &'a str,
+    ) -> TemplateCreationParams<'a> {
         TemplateCreationParams {
             name,
-            source: "git/config.tpl",
-            destination: "~/.config/git/config",
+            destination: ".config/git/config",
             engine,
+            extension,
             render_command,
             description: "",
         }
@@ -326,39 +402,73 @@ mod tests {
 
     #[test]
     fn test_validate_rejects_empty_name() {
-        let p = params("", TemplateEngine::OpInject, "");
+        let p = params("", TemplateEngine::OpInject, "", "");
         assert!(!TemplateService::validate_template(&p).is_valid);
     }
 
     #[test]
-    fn test_validate_custom_requires_command() {
-        let p = params("x", TemplateEngine::Custom, "");
+    fn test_validate_rejects_name_with_extension() {
+        let p = params("config.tpl", TemplateEngine::OpInject, "", "");
         let v = TemplateService::validate_template(&p);
         assert!(!v.is_valid);
-        assert!(v.error_message.unwrap().contains("render command"));
+        assert!(v.error_message.unwrap().contains("extension"));
+    }
+
+    #[test]
+    fn test_validate_custom_requires_command_and_extension() {
+        let no_cmd = params("x", TemplateEngine::Custom, "", "j2");
+        assert!(!TemplateService::validate_template(&no_cmd).is_valid);
+        let no_ext = params("x", TemplateEngine::Custom, "tera", "");
+        let v = TemplateService::validate_template(&no_ext);
+        assert!(!v.is_valid);
+        assert!(v.error_message.unwrap().contains("extension"));
     }
 
     #[test]
     fn test_validate_op_inject_ok_without_command() {
-        let p = params("git config", TemplateEngine::OpInject, "");
+        let p = params("config", TemplateEngine::OpInject, "", "");
         assert!(TemplateService::validate_template(&p).is_valid);
     }
 
     #[test]
-    fn test_create_template_drops_command_for_builtin() {
-        let t = TemplateService::create_template(params("git config", TemplateEngine::OpInject, "ignored"));
+    fn test_create_template_drops_command_and_extension_for_builtin() {
+        let t = TemplateService::create_template(params("config", TemplateEngine::OpInject, "ignored", "ignored"));
         assert!(t.render_command.is_none());
+        assert!(t.extension.is_none());
         assert_eq!(t.engine, TemplateEngine::OpInject);
+        // Built-in extension derives from the engine.
+        assert_eq!(t.source_extension(), "tpl");
     }
 
     #[test]
-    fn test_create_template_keeps_command_for_custom() {
+    fn test_create_template_keeps_command_and_extension_for_custom() {
         let t = TemplateService::create_template(params(
-            "custom",
+            "config",
             TemplateEngine::Custom,
             "tera -t {source} -o {destination}",
+            ".j2",
         ));
         assert_eq!(t.render_command.as_deref(), Some("tera -t {source} -o {destination}"));
+        // Leading dot is stripped.
+        assert_eq!(t.extension.as_deref(), Some("j2"));
+        assert_eq!(t.source_extension(), "j2");
+    }
+
+    #[test]
+    fn test_source_relative_path_mirrors_destination_under_profile() {
+        let t = TemplateService::create_template(params("config", TemplateEngine::OpInject, "", ""));
+        assert_eq!(
+            t.source_relative_path("personal"),
+            "templates/personal/.config/git/config.tpl"
+        );
+    }
+
+    #[test]
+    fn test_create_template_strips_leading_slash_from_destination() {
+        let mut p = params("config", TemplateEngine::OpInject, "", "");
+        p.destination = "/.config/git/config";
+        let t = TemplateService::create_template(p);
+        assert_eq!(t.destination, ".config/git/config");
     }
 
     #[test]
@@ -370,9 +480,9 @@ mod tests {
     fn test_check_template_missing() {
         let t = Template {
             name: "x".to_string(),
-            source: "a.tpl".to_string(),
             destination: "/nonexistent/path/that/should/not/exist/xyz".to_string(),
             engine: TemplateEngine::OpInject,
+            extension: None,
             render_command: None,
             description: None,
         };

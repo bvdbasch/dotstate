@@ -238,18 +238,10 @@ mod tests {
     #[test]
     fn test_vim_has_hjkl() {
         let bindings = KeymapPreset::Vim.bindings();
-        assert!(bindings
-            .iter()
-            .any(|b| b.key == "j" && b.action == Action::MoveDown));
-        assert!(bindings
-            .iter()
-            .any(|b| b.key == "k" && b.action == Action::MoveUp));
-        assert!(bindings
-            .iter()
-            .any(|b| b.key == "h" && b.action == Action::MoveLeft));
-        assert!(bindings
-            .iter()
-            .any(|b| b.key == "l" && b.action == Action::MoveRight));
+        assert!(bindings.iter().any(|b| b.key == "j" && b.action == Action::MoveDown));
+        assert!(bindings.iter().any(|b| b.key == "k" && b.action == Action::MoveUp));
+        assert!(bindings.iter().any(|b| b.key == "h" && b.action == Action::MoveLeft));
+        assert!(bindings.iter().any(|b| b.key == "l" && b.action == Action::MoveRight));
     }
 
     #[test]
@@ -258,9 +250,7 @@ mod tests {
         assert!(bindings
             .iter()
             .any(|b| b.key == "ctrl+n" && b.action == Action::MoveDown));
-        assert!(bindings
-            .iter()
-            .any(|b| b.key == "ctrl+p" && b.action == Action::MoveUp));
+        assert!(bindings.iter().any(|b| b.key == "ctrl+p" && b.action == Action::MoveUp));
     }
 
     #[test]

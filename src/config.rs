@@ -169,23 +169,16 @@ impl Config {
             tracing::debug!("Loading config from: {:?}", config_path);
             let content = std::fs::read_to_string(config_path)
                 .with_context(|| format!("Failed to read config file: {config_path:?}"))?;
-            let mut config: Config =
-                toml::from_str(&content).with_context(|| "Failed to parse config file")?;
+            let mut config: Config = toml::from_str(&content).with_context(|| "Failed to parse config file")?;
 
             // Migrate if needed
             if config.version < CURRENT_VERSION {
                 let old_version = config.version;
-                tracing::info!(
-                    "Migrating config from v{} to v{}",
-                    old_version,
-                    CURRENT_VERSION
-                );
+                tracing::info!("Migrating config from v{} to v{}", old_version, CURRENT_VERSION);
                 config = Self::migrate(config)?;
 
                 // Backup, save, cleanup
-                crate::utils::migrate_file(config_path, old_version, "toml", || {
-                    config.save(config_path)
-                })?;
+                crate::utils::migrate_file(config_path, old_version, "toml", || config.save(config_path))?;
             }
 
             // Set defaults for missing fields (for backward compatibility)
@@ -200,9 +193,7 @@ impl Config {
 
             // If active_profile is empty and repo exists, try to set it from manifest
             if config.active_profile.is_empty() && config.repo_path.exists() {
-                if let Ok(manifest) =
-                    crate::utils::ProfileManifest::load_or_backfill(&config.repo_path)
-                {
+                if let Ok(manifest) = crate::utils::ProfileManifest::load_or_backfill(&config.repo_path) {
                     if let Some(first_profile) = manifest.profiles.first() {
                         config.active_profile = first_profile.name.clone();
                         config.save(config_path)?;
@@ -214,17 +205,12 @@ impl Config {
             Ok(config)
         } else {
             // Config doesn't exist - create default
-            tracing::info!(
-                "Config not found, creating default config at: {:?}",
-                config_path
-            );
+            tracing::info!("Config not found, creating default config at: {:?}", config_path);
             let mut config = Self::default();
 
             // Try to discover active profile from the repo manifest if repo_path exists
             if config.repo_path.exists() {
-                if let Ok(manifest) =
-                    crate::utils::ProfileManifest::load_or_backfill(&config.repo_path)
-                {
+                if let Ok(manifest) = crate::utils::ProfileManifest::load_or_backfill(&config.repo_path) {
                     if let Some(first_profile) = manifest.profiles.first() {
                         config.active_profile = first_profile.name.clone();
                     }
@@ -248,8 +234,7 @@ impl Config {
         }
 
         // Write to temp file first
-        std::fs::write(&temp_path, &content)
-            .with_context(|| format!("Failed to write temp config: {temp_path:?}"))?;
+        std::fs::write(&temp_path, &content).with_context(|| format!("Failed to write temp config: {temp_path:?}"))?;
 
         // Set secure permissions on temp file (600: owner read/write only)
         #[cfg(unix)]
@@ -297,18 +282,13 @@ impl Config {
         // First, check environment variable
         if let Ok(token) = std::env::var("DOTSTATE_GITHUB_TOKEN") {
             if !token.is_empty() {
-                tracing::debug!(
-                    "Using GitHub token from DOTSTATE_GITHUB_TOKEN environment variable"
-                );
+                tracing::debug!("Using GitHub token from DOTSTATE_GITHUB_TOKEN environment variable");
                 return Some(token);
             }
         }
 
         // Fall back to config token
-        self.github
-            .as_ref()
-            .and_then(|gh| gh.token.as_ref())
-            .cloned()
+        self.github.as_ref().and_then(|gh| gh.token.as_ref()).cloned()
     }
 
     /// Get the icon set based on config value

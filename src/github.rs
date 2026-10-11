@@ -51,11 +51,7 @@ impl GitHubClient {
 
         // Log request details (mask token for security)
         let token_preview = if self.token.len() > 8 {
-            format!(
-                "{}...{}",
-                &self.token[..4],
-                &self.token[self.token.len() - 4..]
-            )
+            format!("{}...{}", &self.token[..4], &self.token[self.token.len() - 4..])
         } else {
             "***".to_string()
         };
@@ -109,10 +105,7 @@ impl GitHubClient {
         }
 
         if !status.is_success() {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             error!("=== GitHub API Error ===");
             error!("Status: {} {}", status.as_u16(), status);
             error!("Error response body: {}", error_text);
@@ -172,10 +165,7 @@ impl GitHubClient {
         }
 
         if !status.is_success() {
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
             anyhow::bail!("Failed to check repository ({status}): {error_text}");
         }
 
@@ -183,12 +173,7 @@ impl GitHubClient {
     }
 
     /// Create a new repository
-    pub async fn create_repo(
-        &self,
-        name: &str,
-        description: &str,
-        private: bool,
-    ) -> Result<GitHubRepo> {
+    pub async fn create_repo(&self, name: &str, description: &str, private: bool) -> Result<GitHubRepo> {
         let request_body = CreateRepoRequest {
             name: name.to_string(),
             description: description.to_string(),
@@ -199,11 +184,7 @@ impl GitHubClient {
         let url = "https://api.github.com/user/repos";
         let auth_header = format!("token {}", self.token);
         let token_preview = if self.token.len() > 8 {
-            format!(
-                "{}...{}",
-                &self.token[..4],
-                &self.token[self.token.len() - 4..]
-            )
+            format!("{}...{}", &self.token[..4], &self.token[self.token.len() - 4..])
         } else {
             "***".to_string()
         };
@@ -253,10 +234,7 @@ impl GitHubClient {
             anyhow::bail!("Failed to create repository ({status}): {error_text}");
         }
 
-        let repo: GitHubRepo = response
-            .json()
-            .await
-            .context("Failed to parse repository response")?;
+        let repo: GitHubRepo = response.json().await.context("Failed to parse repository response")?;
 
         Ok(repo)
     }

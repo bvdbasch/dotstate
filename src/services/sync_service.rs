@@ -86,12 +86,7 @@ impl SyncService {
         }
 
         // VALIDATE BEFORE ANY OPERATIONS - prevent data loss
-        let validation = sync_validation::validate_before_sync(
-            relative_path,
-            full_path,
-            &previously_synced,
-            repo_path,
-        );
+        let validation = sync_validation::validate_before_sync(relative_path, full_path, &previously_synced, repo_path);
         if !validation.is_safe {
             let error_msg = validation
                 .error_message
@@ -116,27 +111,18 @@ impl SyncService {
             full_path.to_path_buf()
         };
 
-        let symlink_validation = sync_validation::validate_symlink_creation(
-            &original_source,
-            &repo_file_path,
-            &target_path,
-        )
-        .context("Failed to validate symlink creation")?;
+        let symlink_validation =
+            sync_validation::validate_symlink_creation(&original_source, &repo_file_path, &target_path)
+                .context("Failed to validate symlink creation")?;
         if !symlink_validation.is_safe {
             let error_msg = symlink_validation
                 .error_message
                 .unwrap_or_else(|| "Cannot create symlink".to_string());
-            warn!(
-                "Symlink validation failed for {}: {}",
-                relative_path, error_msg
-            );
+            warn!("Symlink validation failed for {}: {}", relative_path, error_msg);
             return Ok(AddFileResult::ValidationFailed(error_msg));
         }
 
-        info!(
-            "Adding file to sync: {} (profile: {})",
-            relative_path, profile_name
-        );
+        info!("Adding file to sync: {} (profile: {})", relative_path, profile_name);
         debug!("Source path: {:?}", full_path);
         debug!("Repo destination: {:?}", repo_file_path);
         debug!("Symlink target: {:?}", target_path);
@@ -212,10 +198,7 @@ impl SyncService {
             return Ok(RemoveFileResult::NotSynced);
         }
 
-        info!(
-            "Removing file from sync: {} (profile: {})",
-            relative_path, profile_name
-        );
+        info!("Removing file from sync: {} (profile: {})", relative_path, profile_name);
 
         let target_path = home_dir.join(relative_path);
         let repo_file_path = repo_path.join(profile_name).join(relative_path);
@@ -229,11 +212,9 @@ impl SyncService {
                 // Copy file from repo back to home
                 if repo_file_path.exists() {
                     if repo_file_path.is_dir() {
-                        copy_dir_all(&repo_file_path, &target_path)
-                            .context("Failed to restore directory from repo")?;
+                        copy_dir_all(&repo_file_path, &target_path).context("Failed to restore directory from repo")?;
                     } else {
-                        std::fs::copy(&repo_file_path, &target_path)
-                            .context("Failed to restore file from repo")?;
+                        std::fs::copy(&repo_file_path, &target_path).context("Failed to restore file from repo")?;
                     }
                 }
             }
@@ -250,8 +231,7 @@ impl SyncService {
         // Remove from repo
         if repo_file_path.exists() {
             if repo_file_path.is_dir() {
-                std::fs::remove_dir_all(&repo_file_path)
-                    .context("Failed to remove directory from repo")?;
+                std::fs::remove_dir_all(&repo_file_path).context("Failed to remove directory from repo")?;
             } else {
                 std::fs::remove_file(&repo_file_path).context("Failed to remove file from repo")?;
             }
@@ -293,11 +273,7 @@ impl SyncService {
     }
 
     /// Add a file path to the manifest for a profile.
-    fn add_file_to_manifest(
-        repo_path: &Path,
-        profile_name: &str,
-        relative_path: &str,
-    ) -> Result<()> {
+    fn add_file_to_manifest(repo_path: &Path, profile_name: &str, relative_path: &str) -> Result<()> {
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
         let current_files = manifest
             .profiles
@@ -309,10 +285,7 @@ impl SyncService {
         if current_files.contains(&relative_path.to_string()) {
             debug!("File already in manifest, skipping update");
         } else {
-            debug!(
-                "Adding {} to manifest for profile {}",
-                relative_path, profile_name
-            );
+            debug!("Adding {} to manifest for profile {}", relative_path, profile_name);
             let mut new_files = current_files;
             new_files.push(relative_path.to_string());
             manifest.update_synced_files(profile_name, new_files)?;
@@ -351,15 +324,14 @@ impl SyncService {
         let manifest = ProfileManifest::load_or_backfill(&config.repo_path)?;
 
         // Mark files that are already synced
-        let synced_set: HashSet<String> =
-            Self::get_synced_files(&config.repo_path, &config.active_profile)
-                .unwrap_or_default()
-                .iter()
-                .map(|p| {
-                    let p = p.replace('\\', "/");
-                    p.strip_prefix("./").unwrap_or(&p).to_string()
-                })
-                .collect();
+        let synced_set: HashSet<String> = Self::get_synced_files(&config.repo_path, &config.active_profile)
+            .unwrap_or_default()
+            .iter()
+            .map(|p| {
+                let p = p.replace('\\', "/");
+                p.strip_prefix("./").unwrap_or(&p).to_string()
+            })
+            .collect();
 
         // Also check if any found files are common files
         let common_files_raw = manifest.get_common_files();
@@ -405,10 +377,7 @@ impl SyncService {
             }
 
             // Check if already in the list
-            if found
-                .iter()
-                .any(|d| d.relative_path.to_string_lossy() == *custom_path)
-            {
+            if found.iter().any(|d| d.relative_path.to_string_lossy() == *custom_path) {
                 continue;
             }
 
@@ -429,10 +398,7 @@ impl SyncService {
         // even if they're not in the local config.custom_files
         for synced_path in &synced_set {
             // Skip if already in the list
-            if found
-                .iter()
-                .any(|d| d.relative_path.to_string_lossy() == *synced_path)
-            {
+            if found.iter().any(|d| d.relative_path.to_string_lossy() == *synced_path) {
                 continue;
             }
 
@@ -546,20 +512,12 @@ impl SyncService {
 
         // VALIDATE BEFORE ANY OPERATIONS
         let previously_synced = Self::get_synced_files(repo_path, &config.active_profile)?;
-        let validation = sync_validation::validate_before_sync(
-            relative_path,
-            full_path,
-            &previously_synced,
-            repo_path,
-        );
+        let validation = sync_validation::validate_before_sync(relative_path, full_path, &previously_synced, repo_path);
         if !validation.is_safe {
             let error_msg = validation
                 .error_message
                 .unwrap_or_else(|| "Cannot add this file to common".to_string());
-            warn!(
-                "Validation failed for common file {}: {}",
-                relative_path, error_msg
-            );
+            warn!("Validation failed for common file {}: {}", relative_path, error_msg);
             return Ok(AddFileResult::ValidationFailed(error_msg));
         }
 
@@ -579,12 +537,9 @@ impl SyncService {
             full_path.to_path_buf()
         };
 
-        let symlink_validation = sync_validation::validate_symlink_creation(
-            &original_source,
-            &repo_file_path,
-            &target_path,
-        )
-        .context("Failed to validate symlink creation")?;
+        let symlink_validation =
+            sync_validation::validate_symlink_creation(&original_source, &repo_file_path, &target_path)
+                .context("Failed to validate symlink creation")?;
         if !symlink_validation.is_safe {
             let error_msg = symlink_validation
                 .error_message
@@ -654,10 +609,7 @@ impl SyncService {
     /// # Returns
     ///
     /// Result indicating success or that file was not in common.
-    pub fn remove_common_file_from_sync(
-        config: &Config,
-        relative_path: &str,
-    ) -> Result<RemoveFileResult> {
+    pub fn remove_common_file_from_sync(config: &Config, relative_path: &str) -> Result<RemoveFileResult> {
         let repo_path = &config.repo_path;
         let home_dir = get_home_dir();
 
@@ -686,8 +638,7 @@ impl SyncService {
                         copy_dir_all(&repo_file_path, &target_path)
                             .context("Failed to restore directory from common")?;
                     } else {
-                        std::fs::copy(&repo_file_path, &target_path)
-                            .context("Failed to restore file from common")?;
+                        std::fs::copy(&repo_file_path, &target_path).context("Failed to restore file from common")?;
                     }
                 }
             }
@@ -700,11 +651,9 @@ impl SyncService {
         // Remove from common folder
         if repo_file_path.exists() {
             if repo_file_path.is_dir() {
-                std::fs::remove_dir_all(&repo_file_path)
-                    .context("Failed to remove directory from common")?;
+                std::fs::remove_dir_all(&repo_file_path).context("Failed to remove directory from common")?;
             } else {
-                std::fs::remove_file(&repo_file_path)
-                    .context("Failed to remove file from common")?;
+                std::fs::remove_file(&repo_file_path).context("Failed to remove file from common")?;
             }
         }
 
@@ -765,11 +714,9 @@ impl SyncService {
             let profile_file_path = repo_path.join(profile).join(relative_path);
             if profile_file_path.exists() {
                 if profile_file_path.is_dir() {
-                    std::fs::remove_dir_all(&profile_file_path)
-                        .context("Failed to remove directory from profile")?;
+                    std::fs::remove_dir_all(&profile_file_path).context("Failed to remove directory from profile")?;
                 } else {
-                    std::fs::remove_file(&profile_file_path)
-                        .context("Failed to remove file from profile")?;
+                    std::fs::remove_file(&profile_file_path).context("Failed to remove file from profile")?;
                 }
             }
 
@@ -796,10 +743,7 @@ impl SyncService {
         let repo_path = &config.repo_path;
         let profile_name = &config.active_profile;
 
-        info!(
-            "Moving {} from profile '{}' to common",
-            relative_path, profile_name
-        );
+        info!("Moving {} from profile '{}' to common", relative_path, profile_name);
 
         // Load manifest
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
@@ -873,10 +817,7 @@ impl SyncService {
         let repo_path = &config.repo_path;
         let profile_name = &config.active_profile;
 
-        info!(
-            "Moving {} from common to profile '{}'",
-            relative_path, profile_name
-        );
+        info!("Moving {} from common to profile '{}'", relative_path, profile_name);
 
         // Load manifest
         let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
@@ -920,10 +861,7 @@ impl SyncService {
         symlink_mgr.remove_common_symlink_from_tracking(relative_path)?;
         symlink_mgr.add_symlink_to_profile(profile_name, relative_path)?;
 
-        info!(
-            "Successfully moved {} to profile '{}'",
-            relative_path, profile_name
-        );
+        info!("Successfully moved {} to profile '{}'", relative_path, profile_name);
 
         Ok(())
     }

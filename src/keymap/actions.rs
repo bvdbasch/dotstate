@@ -161,11 +161,9 @@ impl Action {
             | Action::Home
             | Action::End => "Navigation",
 
-            Action::Confirm
-            | Action::Cancel
-            | Action::ToggleSelect
-            | Action::SelectAll
-            | Action::DeselectAll => "Selection",
+            Action::Confirm | Action::Cancel | Action::ToggleSelect | Action::SelectAll | Action::DeselectAll => {
+                "Selection"
+            }
 
             Action::Quit | Action::Help => "Global",
 

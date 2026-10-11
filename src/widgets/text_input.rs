@@ -10,8 +10,8 @@
 
 use crate::utils::text_input::TextInput;
 use crate::utils::{
-    disabled_border_style, disabled_text_style, focused_border_style, input_placeholder_style,
-    input_text_style, unfocused_border_style,
+    disabled_border_style, disabled_text_style, focused_border_style, input_placeholder_style, input_text_style,
+    unfocused_border_style,
 };
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
@@ -165,9 +165,7 @@ impl<'a> TextInputWidget<'a> {
                 .style(crate::styles::theme().background_style());
 
             if let Some(title) = self.title {
-                block = block
-                    .title(format!(" {title} "))
-                    .title_alignment(self.title_alignment);
+                block = block.title(format!(" {title} ")).title_alignment(self.title_alignment);
             }
 
             block

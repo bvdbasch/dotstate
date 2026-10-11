@@ -28,10 +28,7 @@ fn generate_path_combinations() -> Vec<(String, Vec<String>)> {
             vec![".config/nvim".to_string()],
         ),
         // Test case 5: Sibling files (should be OK)
-        (
-            ".nvim/config.lua".to_string(),
-            vec![".nvim/init.lua".to_string()],
-        ),
+        (".nvim/config.lua".to_string(), vec![".nvim/init.lua".to_string()]),
         // Test case 6: Path variations
         ("./nvim/init.lua".to_string(), vec![".nvim".to_string()]),
         ("nvim/init.lua".to_string(), vec![".nvim".to_string()]),
@@ -55,8 +52,8 @@ fn test_path_combination_scenarios() {
     assert!(!combinations.is_empty(), "Should have test combinations");
 
     // Verify we're testing the critical bug scenario
-    let has_bug_scenario = combinations.iter().any(|(path, synced)| {
-        path.contains("nvim/init.lua") && synced.iter().any(|s| s.contains("nvim"))
-    });
+    let has_bug_scenario = combinations
+        .iter()
+        .any(|(path, synced)| path.contains("nvim/init.lua") && synced.iter().any(|s| s.contains("nvim")));
     assert!(has_bug_scenario, "Should test the original bug scenario");
 }

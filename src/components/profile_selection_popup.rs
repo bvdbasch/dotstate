@@ -7,9 +7,7 @@ use crate::components::{Popup, PopupRenderResult};
 use crate::config::Config;
 use crate::keymap::Action;
 use crate::styles::theme;
-use crate::utils::{
-    focused_border_style, unfocused_border_style, MouseRegions, ProfileManifest, TextInput,
-};
+use crate::utils::{focused_border_style, unfocused_border_style, MouseRegions, ProfileManifest, TextInput};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -140,9 +138,7 @@ impl ProfileSelectionPopup {
         // When "Create New" is selected, handle character input first
         if self.is_create_new_selected() {
             if let KeyCode::Char(c) = code {
-                if !modifiers
-                    .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
-                {
+                if !modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER) {
                     self.create_input.insert_char(c);
                     return None;
                 }
@@ -393,9 +389,7 @@ impl ProfileSelectionPopup {
         let input_text = self.create_input.text();
 
         let style = if is_selected {
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD)
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Cyan)
         };
@@ -417,9 +411,7 @@ impl ProfileSelectionPopup {
                 Span::styled(format!("  {} ", icons.create()), style),
                 Span::styled(
                     "Type name to create...",
-                    Style::default()
-                        .fg(t.text_muted)
-                        .add_modifier(Modifier::ITALIC),
+                    Style::default().fg(t.text_muted).add_modifier(Modifier::ITALIC),
                 ),
             ])
         } else {
@@ -502,10 +494,7 @@ impl ProfileSelectionPopup {
 
         let mut lines = vec![
             Line::from(vec![
-                Span::styled(
-                    "Name: ",
-                    Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled("Name: ", Style::default().fg(t.primary).add_modifier(Modifier::BOLD)),
                 Span::styled(profile.name.clone(), t.text_style()),
             ]),
             Line::from(""),
@@ -526,10 +515,7 @@ impl ProfileSelectionPopup {
 
         if !files_list.is_empty() {
             for line in files_list.lines() {
-                lines.push(Line::from(vec![Span::styled(
-                    line.to_string(),
-                    t.text_style(),
-                )]));
+                lines.push(Line::from(vec![Span::styled(line.to_string(), t.text_style())]));
             }
         }
 
@@ -544,11 +530,7 @@ impl ProfileSelectionPopup {
     }
 
     /// Build the preview content for creating a new profile
-    fn build_create_new_preview<'a>(
-        &self,
-        _icons: &crate::icons::Icons,
-        t: &crate::styles::Theme,
-    ) -> Text<'a> {
+    fn build_create_new_preview<'a>(&self, _icons: &crate::icons::Icons, t: &crate::styles::Theme) -> Text<'a> {
         let input_text = self.create_input.text();
 
         let name_display = if input_text.is_empty() {
@@ -558,19 +540,14 @@ impl ProfileSelectionPopup {
         };
 
         let name_style = if input_text.is_empty() {
-            Style::default()
-                .fg(t.text_muted)
-                .add_modifier(Modifier::ITALIC)
+            Style::default().fg(t.text_muted).add_modifier(Modifier::ITALIC)
         } else {
             t.text_style()
         };
 
         Text::from(vec![
             Line::from(vec![
-                Span::styled(
-                    "Name: ",
-                    Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
-                ),
+                Span::styled("Name: ", Style::default().fg(t.primary).add_modifier(Modifier::BOLD)),
                 Span::styled(name_display, name_style),
             ]),
             Line::from(""),

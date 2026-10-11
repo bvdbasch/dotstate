@@ -140,12 +140,8 @@ fn cmd_help(command: Option<String>) -> Result<()> {
             println!("  -b, --binary <NAME>        Binary name to check for existence");
             println!("      --description <TEXT>   Optional description");
             println!("      --package-name <NAME>  Package name in the manager (defaults to binary name)");
-            println!(
-                "      --install-command <CMD>  Install command (required for custom manager)"
-            );
-            println!(
-                "      --existence-check <CMD>  Command to check if package exists (optional)"
-            );
+            println!("      --install-command <CMD>  Install command (required for custom manager)");
+            println!("      --existence-check <CMD>  Command to check if package exists (optional)");
             println!();
             println!("Examples:");
             println!("  dotstate packages add -n ripgrep -m brew -b rg");
@@ -363,25 +359,17 @@ fn cmd_add(
 
     // Check for duplicate
     if existing.iter().any(|p| p.name == name) {
-        print_error(&format!(
-            "Package '{name}' already exists in profile '{profile_name}'"
-        ));
+        print_error(&format!("Package '{name}' already exists in profile '{profile_name}'"));
         std::process::exit(1);
     }
 
     let manager = match manager {
-        Some(m) => parse_manager(&m).ok_or_else(|| {
-            anyhow::anyhow!(
-                "Invalid manager '{m}'. Valid: brew, apt, cargo, npm, pip, custom, etc."
-            )
-        })?,
+        Some(m) => parse_manager(&m)
+            .ok_or_else(|| anyhow::anyhow!("Invalid manager '{m}'. Valid: brew, apt, cargo, npm, pip, custom, etc."))?,
         None => prompt_manager(is_active)?,
     };
 
-    let is_custom = matches!(
-        manager,
-        crate::utils::profile_manifest::PackageManager::Custom
-    );
+    let is_custom = matches!(manager, crate::utils::profile_manifest::PackageManager::Custom);
 
     let binary = match binary {
         Some(b) => b,
@@ -425,14 +413,8 @@ fn cmd_add(
     };
 
     // Validate
-    let validation = PackageService::validate_package(
-        &name,
-        &binary,
-        is_custom,
-        &pkg_name,
-        &install_cmd,
-        Some(&manager),
-    );
+    let validation =
+        PackageService::validate_package(&name, &binary, is_custom, &pkg_name, &install_cmd, Some(&manager));
 
     if !validation.is_valid {
         print_error(
@@ -459,9 +441,7 @@ fn cmd_add(
     // Add to profile
     PackageService::add_package(&ctx.config.repo_path, &profile_name, package)?;
 
-    print_success(&format!(
-        "Package '{name}' added to profile '{profile_name}'"
-    ));
+    print_success(&format!("Package '{name}' added to profile '{profile_name}'"));
 
     Ok(())
 }
@@ -490,9 +470,7 @@ fn cmd_remove(profile: Option<String>, yes: bool, name: Option<String>) -> Resul
             let mgr = format!("{:?}", packages[i].manager).to_lowercase();
             (i, n.clone(), mgr)
         } else {
-            print_error(&format!(
-                "Package '{n}' not found in profile '{profile_name}'"
-            ));
+            print_error(&format!("Package '{n}' not found in profile '{profile_name}'"));
             std::process::exit(1);
         }
     } else {
@@ -507,10 +485,7 @@ fn cmd_remove(profile: Option<String>, yes: bool, name: Option<String>) -> Resul
             })
             .collect();
 
-        let options_ref: Vec<(&str, Option<&str>)> = options
-            .iter()
-            .map(|(n, s)| (n.as_str(), s.as_deref()))
-            .collect();
+        let options_ref: Vec<(&str, Option<&str>)> = options.iter().map(|(n, s)| (n.as_str(), s.as_deref())).collect();
 
         let selected = prompt_select_with_suffix("Package", &options_ref)?;
         let mgr = format!("{:?}", packages[selected].manager).to_lowercase();
@@ -519,8 +494,7 @@ fn cmd_remove(profile: Option<String>, yes: bool, name: Option<String>) -> Resul
 
     // Confirm unless --yes
     if !yes {
-        let confirm_msg =
-            format!("Remove '{package_name}' ({manager_str}) from profile '{profile_name}'?");
+        let confirm_msg = format!("Remove '{package_name}' ({manager_str}) from profile '{profile_name}'?");
         if !prompt_confirm(&confirm_msg)? {
             println!("Cancelled.");
             return Ok(());

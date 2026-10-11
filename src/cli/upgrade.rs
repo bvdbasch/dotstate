@@ -25,10 +25,7 @@ pub fn execute(check_only: bool) -> Result<()> {
                 println!("Update options:");
                 println!();
                 println!("  1. Using install script:");
-                println!(
-                    "     curl -fsSL {} | bash",
-                    UpdateInfo::install_script_url()
-                );
+                println!("     curl -fsSL {} | bash", UpdateInfo::install_script_url());
                 println!();
                 println!("  2. Using Cargo:");
                 println!("     cargo install dotstate --force");
@@ -57,9 +54,7 @@ pub fn execute(check_only: bool) -> Result<()> {
             io::stdout().flush().context("Failed to flush stdout")?;
 
             let mut input = String::new();
-            io::stdin()
-                .read_line(&mut input)
-                .context("Failed to read input")?;
+            io::stdin().read_line(&mut input).context("Failed to read input")?;
 
             let choice = input.trim();
 
@@ -70,17 +65,13 @@ pub fn execute(check_only: bool) -> Result<()> {
                     println!("   {}", UpdateInfo::install_script_url());
                     println!();
                     println!("   This may conflict with cargo or homebrew installations.");
-                    println!(
-                        "   If you installed via cargo or brew, consider using those to update."
-                    );
+                    println!("   If you installed via cargo or brew, consider using those to update.");
                     println!();
                     print!("Continue? [y/N]: ");
                     io::stdout().flush().context("Failed to flush stdout")?;
 
                     let mut confirm = String::new();
-                    io::stdin()
-                        .read_line(&mut confirm)
-                        .context("Failed to read input")?;
+                    io::stdin().read_line(&mut confirm).context("Failed to read input")?;
 
                     let confirmed = confirm.trim().to_lowercase();
                     if confirmed != "y" && confirmed != "yes" {
@@ -95,18 +86,13 @@ pub fn execute(check_only: bool) -> Result<()> {
                     // Run the install script
                     let status = std::process::Command::new("bash")
                         .arg("-c")
-                        .arg(format!(
-                            "curl -fsSL {} | bash",
-                            UpdateInfo::install_script_url()
-                        ))
+                        .arg(format!("curl -fsSL {} | bash", UpdateInfo::install_script_url()))
                         .status()
                         .context("Failed to run install script")?;
 
                     if status.success() {
                         println!();
-                        println!(
-                            "✅ Update complete! Please restart dotstate to use the new version."
-                        );
+                        println!("✅ Update complete! Please restart dotstate to use the new version.");
                     } else {
                         eprintln!();
                         eprintln!(
@@ -142,10 +128,7 @@ pub fn execute(check_only: bool) -> Result<()> {
             }
         }
         None => {
-            println!(
-                "✅ You're running the latest version ({})!",
-                current_version()
-            );
+            println!("✅ You're running the latest version ({})!", current_version());
         }
     }
 

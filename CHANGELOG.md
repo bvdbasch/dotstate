@@ -9,11 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Templates TUI**: Manage Templates menu and screen with add/edit/remove forms, built-in `op-inject` and custom engine selection, inherited-entry labels, destination existence checks, and background rendering of selected or all templates. Includes keymap-aware controls, mouse interaction, and scrollable forms for smaller terminals.
-
-### Fixed
-
-- **Templates**: Register the previously added CLI, service, and engine modules, and update profile constructors and migration tests for the template manifest schema.
+- **Templates**: New per-profile "templates" feature (manifest schema v3) that renders a committed source file to a home-relative destination via a built-in engine. The source location is **derived** from the destination, owning profile, and engine — `templates/<profile>/<destination>.<ext>` — mirroring how synced files live under `<profile>/<path>`, with a `templates/common/` pool for shared templates. Ships with the `op-inject` engine (1Password `op inject`, `.tpl` sources) and a `custom` engine (user-supplied command via `sh -c`, with a user-chosen extension). Templates resolve through the profile inheritance chain and merge `common` (lowest priority), overriding by destination.
+- **Templates TUI**: Manage Templates menu and screen. The add/edit form asks only for a name (no extension) and a home-relative destination, previews the derived source path, and hides the extension/command fields until the `custom` engine is selected (mirroring package-manager custom fields). Supports add/edit/remove, render selected/all (in the background), destination existence checks, inherited/common entry labels, keymap-aware controls, mouse interaction, and scrollable forms. Adding a template creates an empty source stub at the derived path.
+- **Templates CLI**: `dotstate templates list|add|remove|render|check`. `add` derives and creates the source stub; `list`/`check` report rendered/missing status and origin profile.
+- **Reserved name**: `templates` is now a reserved profile name, and the `templates/` directory is never auto-detected as a profile during manifest backfill, so it can safely hold template sources at the repo root.
 
 ---
 

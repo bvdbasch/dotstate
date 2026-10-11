@@ -15,8 +15,7 @@ use crate::services::SyncService;
 use crate::styles::{theme as ui_theme, LIST_HIGHLIGHT_SYMBOL};
 use crate::ui::Screen as ScreenId;
 use crate::utils::{
-    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style,
-    MouseRegions, TextInput,
+    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions, TextInput,
 };
 use crate::widgets::{Dialog, DialogVariant};
 use crate::widgets::{TextInputWidget, TextInputWidgetExt};
@@ -28,8 +27,8 @@ use ratatui::style::{Modifier, Style};
 use tracing::{debug, info, warn};
 
 use ratatui::widgets::{
-    Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation,
-    ScrollbarState, StatefulWidget, Wrap,
+    Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    StatefulWidget, Wrap,
 };
 use ratatui::Frame;
 use std::path::{Path, PathBuf};
@@ -53,10 +52,7 @@ pub enum DotfileAction {
     /// Toggle file sync status (add or remove from sync)
     ToggleFileSync { file_index: usize, is_synced: bool },
     /// Add a custom file to sync
-    AddCustomFileToSync {
-        full_path: PathBuf,
-        relative_path: String,
-    },
+    AddCustomFileToSync { full_path: PathBuf, relative_path: String },
     /// Update backup enabled setting
     SetBackupEnabled { enabled: bool },
     /// Move a file to/from common
@@ -100,9 +96,9 @@ pub struct DotfileSelectionState {
     pub file_browser_list_state: ListState, // ListState for file browser (handles selection and scrolling)
     pub file_browser_preview_scroll: usize, // Scroll offset for file browser preview
     pub file_browser_path_input: TextInput, // Path input for file browser
-    pub file_browser_path_focused: bool,    // Whether path input is focused
-    pub focus: DotfileSelectionFocus,       // Which pane currently has focus
-    pub backup_enabled: bool,               // Whether backups are enabled (tracks config value)
+    pub file_browser_path_focused: bool, // Whether path input is focused
+    pub focus: DotfileSelectionFocus,  // Which pane currently has focus
+    pub backup_enabled: bool,          // Whether backups are enabled (tracks config value)
     // Custom file confirmation modal
     pub show_custom_file_confirm: bool, // Whether to show confirmation modal
     pub custom_file_confirm_path: Option<PathBuf>, // Full path to confirm
@@ -229,9 +225,7 @@ impl DotfileSelectionScreen {
             if !items.is_empty() {
                 items.push(DisplayItem::Header(String::new())); // Spacer
             }
-            items.push(DisplayItem::Header(format!(
-                "Profile Files ({profile_name})"
-            )));
+            items.push(DisplayItem::Header(format!("Profile Files ({profile_name})")));
             for idx in profile_indices {
                 items.push(DisplayItem::File(idx));
             }
@@ -242,9 +236,7 @@ impl DotfileSelectionScreen {
 
     /// Handle modal confirmation events.
     fn handle_modal_event(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
         use crate::keymap::Action;
 
         match action {
@@ -273,11 +265,7 @@ impl DotfileSelectionScreen {
     }
 
     /// Handle custom file input (legacy mode, less common).
-    fn handle_custom_file_input(
-        &mut self,
-        key_code: KeyCode,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_custom_file_input(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
         // When input is not focused, only allow Enter to focus or Esc to cancel
         if !self.state.custom_file_focused {
             match key_code {
@@ -373,9 +361,7 @@ impl DotfileSelectionScreen {
 
     /// Handle main dotfile list navigation and selection.
     fn handle_dotfile_list(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
         use crate::keymap::Action;
 
         let display_items = self.get_display_items(&config.active_profile);
@@ -433,9 +419,7 @@ impl DotfileSelectionScreen {
                     }
 
                     // If we didn't move and we are currently on a header (e.g. init), move to first valid
-                    if next >= display_items.len()
-                        && matches!(display_items[current], DisplayItem::Header(_))
-                    {
+                    if next >= display_items.len() && matches!(display_items[current], DisplayItem::Header(_)) {
                         // Try finding valid item from current downwards
                         let mut fix_idx = current + 1;
                         while fix_idx < display_items.len() {
@@ -482,9 +466,7 @@ impl DotfileSelectionScreen {
 
                     // Ensure we don't go below 0 (handled by usize)
                     // Fix if on header
-                    if next < display_items.len()
-                        && matches!(display_items[next], DisplayItem::Header(_))
-                    {
+                    if next < display_items.len() && matches!(display_items[next], DisplayItem::Header(_)) {
                         next = next.saturating_add(1); // Move down one
                     }
                     if next >= display_items.len() {
@@ -561,9 +543,7 @@ impl DotfileSelectionScreen {
                                 }
                                 if !dotfile.is_custom {
                                     return Ok(ScreenAction::ShowToast {
-                                        message:
-                                            "Only custom-added files can be removed from the list"
-                                                .into(),
+                                        message: "Only custom-added files can be removed from the list".into(),
                                         variant: crate::widgets::ToastVariant::Info,
                                     });
                                 }
@@ -585,8 +565,7 @@ impl DotfileSelectionScreen {
                                     // Validate before showing confirmation
                                     if !dotfile.is_common {
                                         // Moving from profile to common - validate first
-                                        let relative_path =
-                                            dotfile.relative_path.to_string_lossy().to_string();
+                                        let relative_path = dotfile.relative_path.to_string_lossy().to_string();
                                         match crate::utils::validate_move_to_common(
                                             &config.repo_path,
                                             &config.active_profile,
@@ -603,9 +582,7 @@ impl DotfileSelectionScreen {
                                                 // Validation error - show error message
                                                 return Ok(ScreenAction::ShowMessage {
                                                     title: "Validation Error".to_string(),
-                                                    content: format!(
-                                                        "Failed to validate move: {e}"
-                                                    ),
+                                                    content: format!("Failed to validate move: {e}"),
                                                 });
                                             }
                                         }
@@ -626,11 +603,7 @@ impl DotfileSelectionScreen {
     }
 
     /// Handle mouse events for the dotfile list screen.
-    fn handle_mouse_event(
-        &mut self,
-        mouse: crossterm::event::MouseEvent,
-        config: &Config,
-    ) -> Result<ScreenAction> {
+    fn handle_mouse_event(&mut self, mouse: crossterm::event::MouseEvent, config: &Config) -> Result<ScreenAction> {
         let display_items = self.get_display_items(&config.active_profile);
 
         match mouse.kind {
@@ -730,9 +703,7 @@ impl DotfileSelectionScreen {
 
     /// Handle preview pane navigation.
     fn handle_preview(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
         use crate::keymap::Action;
 
         if let Some(action) = action {
@@ -760,8 +731,7 @@ impl DotfileSelectionScreen {
                             if let Ok(content) = std::fs::read_to_string(&dotfile.original_path) {
                                 let total_lines = content.lines().count();
                                 let estimated_visible = 20;
-                                self.state.preview_scroll =
-                                    total_lines.saturating_sub(estimated_visible);
+                                self.state.preview_scroll = total_lines.saturating_sub(estimated_visible);
                             } else {
                                 self.state.preview_scroll = 10000;
                             }
@@ -852,8 +822,8 @@ impl DotfileSelectionScreen {
         let current_sel = self.state.dotfile_list_state.selected().unwrap_or(0);
         if !display_items.is_empty() {
             // If selected index is out of bounds or points to a header, fix it
-            let needs_fix = current_sel >= display_items.len()
-                || matches!(display_items[current_sel], DisplayItem::Header(_));
+            let needs_fix =
+                current_sel >= display_items.len() || matches!(display_items[current_sel], DisplayItem::Header(_));
 
             if needs_fix {
                 // Try to find valid item from current position onwards
@@ -892,18 +862,13 @@ impl DotfileSelectionScreen {
                     if title.is_empty() {
                         ListItem::new("").style(Style::default())
                     } else {
-                        ListItem::new(title.clone())
-                            .style(Style::default().fg(t.tertiary).add_modifier(Modifier::BOLD))
+                        ListItem::new(title.clone()).style(Style::default().fg(t.tertiary).add_modifier(Modifier::BOLD))
                     }
                 }
                 DisplayItem::File(idx) => {
                     let dotfile = &self.state.dotfiles[*idx];
                     let is_selected = self.state.selected_for_sync.contains(idx);
-                    let sync_marker = if is_selected {
-                        icons.check()
-                    } else {
-                        icons.uncheck()
-                    };
+                    let sync_marker = if is_selected { icons.check() } else { icons.uncheck() };
 
                     // Indent files under headers
                     // Check if this is the last file in the section (next is header or end of list)
@@ -930,10 +895,7 @@ impl DotfileSelectionScreen {
                     let path_str = dotfile.relative_path.to_string_lossy();
                     let mut spans = vec![
                         ratatui::text::Span::styled(prefix.to_string(), Style::default()),
-                        ratatui::text::Span::styled(
-                            format!(" {sync_marker}\u{2009}{path_str}"),
-                            style,
-                        ),
+                        ratatui::text::Span::styled(format!(" {sync_marker}\u{2009}{path_str}"), style),
                     ];
                     if dotfile.is_custom {
                         spans.push(ratatui::text::Span::styled(
@@ -974,20 +936,13 @@ impl DotfileSelectionScreen {
                     .borders(Borders::ALL)
                     .title(list_title)
                     .title_alignment(Alignment::Center)
-                    .border_type(
-                        t.border_type(self.state.focus == DotfileSelectionFocus::FilesList),
-                    )
+                    .border_type(t.border_type(self.state.focus == DotfileSelectionFocus::FilesList))
                     .border_style(list_border_style),
             )
             .highlight_style(t.highlight_style())
             .highlight_symbol(LIST_HIGHLIGHT_SYMBOL);
 
-        StatefulWidget::render(
-            list,
-            list_area,
-            frame.buffer_mut(),
-            &mut self.state.dotfile_list_state,
-        );
+        StatefulWidget::render(list, list_area, frame.buffer_mut(), &mut self.state.dotfile_list_state);
 
         // Store areas and populate mouse regions
         self.list_pane_area = Some(list_area);
@@ -1095,11 +1050,7 @@ impl DotfileSelectionScreen {
         }
 
         // Footer
-        let backup_status = if self.state.backup_enabled {
-            "ON"
-        } else {
-            "OFF"
-        };
+        let backup_status = if self.state.backup_enabled { "ON" } else { "OFF" };
         let k = |a| config.keymap.get_key_display_for_action(a);
 
         // Determine move action text and custom status based on selected file
@@ -1122,8 +1073,7 @@ impl DotfileSelectionScreen {
             }
         });
 
-        let is_custom_selected =
-            selected_dotfile.is_some_and(|dotfile| dotfile.is_custom && !dotfile.synced);
+        let is_custom_selected = selected_dotfile.is_some_and(|dotfile| dotfile.is_custom && !dotfile.synced);
 
         let remove_part = if is_custom_selected {
             format!(" | {}: Remove", k(crate::keymap::Action::Delete))
@@ -1133,15 +1083,15 @@ impl DotfileSelectionScreen {
 
         let footer_text = format!(
             "Tab: Focus | {}: Navigate | Space/{}: Toggle | {}: {} | {}: Add Custom | {}: Backup ({}){} | {}: Back",
-             config.keymap.navigation_display(),
-             k(crate::keymap::Action::Confirm),
-             k(crate::keymap::Action::Move),
-             move_text,
-             k(crate::keymap::Action::Create),
-             k(crate::keymap::Action::ToggleBackup),
-             backup_status,
-             remove_part,
-             k(crate::keymap::Action::Quit)
+            config.keymap.navigation_display(),
+            k(crate::keymap::Action::Confirm),
+            k(crate::keymap::Action::Move),
+            move_text,
+            k(crate::keymap::Action::Create),
+            k(crate::keymap::Action::ToggleBackup),
+            backup_status,
+            remove_part,
+            k(crate::keymap::Action::Quit)
         );
 
         let _ = Footer::render(frame, footer_chunk, &footer_text)?;
@@ -1149,12 +1099,7 @@ impl DotfileSelectionScreen {
         Ok(())
     }
 
-    fn render_custom_file_confirm(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_custom_file_confirm(&mut self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let path = self
             .state
             .custom_file_confirm_path
@@ -1184,9 +1129,7 @@ impl DotfileSelectionScreen {
     }
 
     fn handle_move_confirm(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
 
         // Handle common actions
         if let Some(action) = action {
@@ -1265,12 +1208,10 @@ impl DotfileSelectionScreen {
 
                         // Check if we're in a blocked dialog (path conflict)
                         if let Some(ref validation) = self.state.move_validation {
-                            let has_path_conflict = validation.conflicts.iter().any(|c| {
-                                matches!(
-                                    c,
-                                    crate::utils::MoveToCommonConflict::PathHierarchyConflict { .. }
-                                )
-                            });
+                            let has_path_conflict = validation
+                                .conflicts
+                                .iter()
+                                .any(|c| matches!(c, crate::utils::MoveToCommonConflict::PathHierarchyConflict { .. }));
                             if has_path_conflict {
                                 // Just close the dialog - can't proceed
                                 self.state.confirm_move = None;
@@ -1326,14 +1267,8 @@ impl DotfileSelectionScreen {
         }
     }
 
-    fn handle_unsync_common_confirm(
-        &mut self,
-        key_code: KeyCode,
-        config: &Config,
-    ) -> Result<ScreenAction> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+    fn handle_unsync_common_confirm(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
 
         // Handle common actions
         if let Some(action) = action {
@@ -1378,14 +1313,8 @@ impl DotfileSelectionScreen {
         }
     }
 
-    fn handle_remove_custom_confirm(
-        &mut self,
-        key_code: KeyCode,
-        config: &Config,
-    ) -> Result<ScreenAction> {
-        let action = config
-            .keymap
-            .get_action(key_code, crossterm::event::KeyModifiers::NONE);
+    fn handle_remove_custom_confirm(&mut self, key_code: KeyCode, config: &Config) -> Result<ScreenAction> {
+        let action = config.keymap.get_action(key_code, crossterm::event::KeyModifiers::NONE);
 
         if let Some(action) = action {
             match action {
@@ -1456,12 +1385,10 @@ impl DotfileSelectionScreen {
 
             if has_blocking {
                 // Check if it's a path hierarchy conflict (most critical)
-                let has_path_conflict = validation.conflicts.iter().any(|c| {
-                    matches!(
-                        c,
-                        crate::utils::MoveToCommonConflict::PathHierarchyConflict { .. }
-                    )
-                });
+                let has_path_conflict = validation
+                    .conflicts
+                    .iter()
+                    .any(|c| matches!(c, crate::utils::MoveToCommonConflict::PathHierarchyConflict { .. }));
 
                 if has_path_conflict {
                     return self.render_move_blocked_dialog(frame, area, config);
@@ -1481,13 +1408,9 @@ impl DotfileSelectionScreen {
 
         // Message
         let msg = if is_moving_to_common {
-            format!(
-                "Move '{dotfile_name}' to common files?\nIt will become available to all profiles."
-            )
+            format!("Move '{dotfile_name}' to common files?\nIt will become available to all profiles.")
         } else {
-            format!(
-                "Move '{dotfile_name}' back to profile?\nIt will no longer be available to other profiles."
-            )
+            format!("Move '{dotfile_name}' back to profile?\nIt will no longer be available to other profiles.")
         };
 
         let k = |a| config.keymap.get_key_display_for_action(a);
@@ -1497,20 +1420,13 @@ impl DotfileSelectionScreen {
             k(crate::keymap::Action::Quit)
         );
 
-        let dialog = Dialog::new(title_text, &msg)
-            .height(20)
-            .footer(&footer_text);
+        let dialog = Dialog::new(title_text, &msg).height(20).footer(&footer_text);
         frame.render_widget(dialog, area);
 
         Ok(())
     }
 
-    fn render_move_force_dialog(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_move_force_dialog(&self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let dotfile_name = if let Some(idx) = self.state.confirm_move {
             if idx < self.state.dotfiles.len() {
                 self.state.dotfiles[idx].relative_path.display().to_string()
@@ -1566,12 +1482,7 @@ impl DotfileSelectionScreen {
         Ok(())
     }
 
-    fn render_move_blocked_dialog(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_move_blocked_dialog(&self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let dotfile_name = if let Some(idx) = self.state.confirm_move {
             if idx < self.state.dotfiles.len() {
                 self.state.dotfiles[idx].relative_path.display().to_string()
@@ -1626,12 +1537,7 @@ impl DotfileSelectionScreen {
         Ok(())
     }
 
-    fn render_unsync_common_confirm(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_unsync_common_confirm(&self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let dotfile_name = if let Some(idx) = self.state.confirm_unsync_common {
             if idx < self.state.dotfiles.len() {
                 self.state.dotfiles[idx].relative_path.display().to_string()
@@ -1663,12 +1569,7 @@ impl DotfileSelectionScreen {
         Ok(())
     }
 
-    fn render_remove_custom_confirm(
-        &self,
-        frame: &mut Frame,
-        area: Rect,
-        config: &Config,
-    ) -> Result<()> {
+    fn render_remove_custom_confirm(&self, frame: &mut Frame, area: Rect, config: &Config) -> Result<()> {
         let dotfile_name = if let Some(idx) = self.state.confirm_remove_custom {
             if idx < self.state.dotfiles.len() {
                 self.state.dotfiles[idx].relative_path.display().to_string()
@@ -1724,10 +1625,9 @@ impl DotfileSelectionScreen {
                 self.refresh_file_browser(config)?;
                 Ok(ActionResult::None)
             }
-            DotfileAction::ToggleFileSync {
-                file_index,
-                is_synced,
-            } => self.toggle_file_sync(config, file_index, is_synced),
+            DotfileAction::ToggleFileSync { file_index, is_synced } => {
+                self.toggle_file_sync(config, file_index, is_synced)
+            }
             DotfileAction::AddCustomFileToSync {
                 full_path,
                 relative_path,
@@ -1741,9 +1641,7 @@ impl DotfileSelectionScreen {
                 is_common,
                 profiles_to_cleanup,
             } => self.move_to_common(config, file_index, is_common, profiles_to_cleanup),
-            DotfileAction::RemoveCustomFile { file_index } => {
-                self.remove_custom_file(config, config_path, file_index)
-            }
+            DotfileAction::RemoveCustomFile { file_index } => self.remove_custom_file(config, config_path, file_index),
         }
     }
 
@@ -1796,12 +1694,7 @@ impl DotfileSelectionScreen {
     }
 
     /// Toggle file sync status (add or remove from sync).
-    pub fn toggle_file_sync(
-        &mut self,
-        config: &Config,
-        file_index: usize,
-        is_synced: bool,
-    ) -> Result<ActionResult> {
+    pub fn toggle_file_sync(&mut self, config: &Config, file_index: usize, is_synced: bool) -> Result<ActionResult> {
         if file_index >= self.state.dotfiles.len() {
             warn!("Invalid file index: {}", file_index);
             return Ok(ActionResult::ShowToast {
@@ -1825,12 +1718,7 @@ impl DotfileSelectionScreen {
 
         info!("Adding file to sync: {}", relative_path);
 
-        match SyncService::add_file_to_sync(
-            config,
-            &full_path,
-            &relative_path,
-            self.state.backup_enabled,
-        ) {
+        match SyncService::add_file_to_sync(config, &full_path, &relative_path, self.state.backup_enabled) {
             Ok(crate::services::AddFileResult::Success) => {
                 // Update state
                 self.state.selected_for_sync.insert(file_index);
@@ -1871,11 +1759,7 @@ impl DotfileSelectionScreen {
     }
 
     /// Remove a file from sync.
-    fn remove_file_from_sync(
-        &mut self,
-        config: &Config,
-        file_index: usize,
-    ) -> Result<ActionResult> {
+    fn remove_file_from_sync(&mut self, config: &Config, file_index: usize) -> Result<ActionResult> {
         let dotfile = &self.state.dotfiles[file_index];
         let relative_path = dotfile.relative_path.to_string_lossy().to_string();
 
@@ -1890,10 +1774,7 @@ impl DotfileSelectionScreen {
                     self.state.dotfiles[file_index].synced = false;
                     self.state.dotfiles[file_index].is_common = false;
 
-                    info!(
-                        "Successfully removed common file from sync: {}",
-                        relative_path
-                    );
+                    info!("Successfully removed common file from sync: {}", relative_path);
                     Ok(ActionResult::ShowToast {
                         message: format!("Removed {relative_path} from sync"),
                         variant: crate::widgets::ToastVariant::Success,
@@ -1983,12 +1864,7 @@ impl DotfileSelectionScreen {
         }
 
         // Add to sync using SyncService
-        match SyncService::add_file_to_sync(
-            config,
-            &full_path,
-            &relative_path,
-            self.state.backup_enabled,
-        ) {
+        match SyncService::add_file_to_sync(config, &full_path, &relative_path, self.state.backup_enabled) {
             Ok(crate::services::AddFileResult::Success) => {
                 // Add to custom files in config if not already present
                 if !config.custom_files.contains(&relative_path) {
@@ -2013,10 +1889,7 @@ impl DotfileSelectionScreen {
                 variant: crate::widgets::ToastVariant::Info,
             }),
             Ok(crate::services::AddFileResult::ValidationFailed(msg)) => {
-                warn!(
-                    "Validation failed for custom file {}: {}",
-                    relative_path, msg
-                );
+                warn!("Validation failed for custom file {}: {}", relative_path, msg);
                 Ok(ActionResult::ShowDialog {
                     title: "Cannot Add File".to_string(),
                     content: msg,
@@ -2136,11 +2009,7 @@ impl DotfileSelectionScreen {
             let result = if profiles_to_cleanup.is_empty() {
                 SyncService::move_to_common(config, &relative_path)
             } else {
-                SyncService::move_to_common_with_cleanup(
-                    config,
-                    &relative_path,
-                    &profiles_to_cleanup,
-                )
+                SyncService::move_to_common_with_cleanup(config, &relative_path, &profiles_to_cleanup)
             };
 
             match result {
@@ -2313,9 +2182,10 @@ impl Screen for DotfileSelectionScreen {
                     // For plain character keys, ALWAYS insert the character first
                     // This ensures vim bindings like h/l don't interfere with typing
                     if let KeyCode::Char(c) = key.code {
-                        if !key.modifiers.intersects(
-                            KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER,
-                        ) {
+                        if !key
+                            .modifiers
+                            .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SUPER)
+                        {
                             self.state.custom_file_input.insert_char(c);
                             return Ok(ScreenAction::Refresh);
                         }

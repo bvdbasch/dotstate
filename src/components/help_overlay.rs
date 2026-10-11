@@ -59,9 +59,7 @@ impl HelpOverlay {
                 Span::styled("Current Preset: ", Style::default().fg(theme.text)),
                 Span::styled(
                     current_preset.name(),
-                    Style::default()
-                        .fg(theme.primary)
-                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(theme.primary).add_modifier(Modifier::BOLD),
                 ),
             ]),
             Line::from(""),
@@ -159,9 +157,7 @@ impl HelpOverlay {
                 }
                 lines.push(Line::from(vec![Span::styled(
                     format!("  {category} "),
-                    Style::default()
-                        .fg(theme.secondary)
-                        .add_modifier(Modifier::BOLD),
+                    Style::default().fg(theme.secondary).add_modifier(Modifier::BOLD),
                 )]));
                 current_category = category;
             }
@@ -184,9 +180,8 @@ impl HelpOverlay {
         frame.render_widget(bindings_paragraph, chunks[1]);
 
         // Footer with config location
-        let footer_text = format!(
-            "Edit keybindings in: {config_path}\nPress 1/2/3 to switch preset, any other key to close"
-        );
+        let footer_text =
+            format!("Edit keybindings in: {config_path}\nPress 1/2/3 to switch preset, any other key to close");
         let footer = Paragraph::new(footer_text)
             .style(Style::default().fg(theme.text_dimmed))
             .alignment(Alignment::Center);

@@ -76,9 +76,7 @@ pub fn check_for_updates_now() -> Option<UpdateInfo> {
             Some(UpdateInfo {
                 current_version: current_version.to_string(),
                 latest_version: version_str.clone(),
-                release_url: format!(
-                    "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/tag/{version_str}"
-                ),
+                release_url: format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/tag/{version_str}"),
             })
         }
         Ok(None) => None,
@@ -116,9 +114,7 @@ pub fn check_for_updates_with_result() -> Result<Option<UpdateInfo>, String> {
             Ok(Some(UpdateInfo {
                 current_version: current_version.to_string(),
                 latest_version: version_str.clone(),
-                release_url: format!(
-                    "https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/tag/{version_str}"
-                ),
+                release_url: format!("https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/tag/{version_str}"),
             }))
         }
         Ok(None) => Ok(None),
@@ -134,9 +130,7 @@ pub fn check_for_updates_with_result() -> Result<Option<UpdateInfo>, String> {
 
                 // Detect if it's a timeout (could be client or server-side)
                 if source_str.contains("timed out") || error_msg.contains("timeout") {
-                    tracing::debug!(
-                        "Update check timed out (GitHub API may be slow or unavailable)"
-                    );
+                    tracing::debug!("Update check timed out (GitHub API may be slow or unavailable)");
                 } else {
                     tracing::debug!("Update check failed: {}", error_details);
                 }

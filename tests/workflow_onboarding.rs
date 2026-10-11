@@ -257,11 +257,7 @@ fn github_setup_clones_existing_repo() -> Result<()> {
     // When: clone the "remote" repo
     let clone_path = base.join("cloned");
     let clone_output = std::process::Command::new("git")
-        .args([
-            "clone",
-            remote_path.to_str().unwrap(),
-            clone_path.to_str().unwrap(),
-        ])
+        .args(["clone", remote_path.to_str().unwrap(), clone_path.to_str().unwrap()])
         .output()?;
 
     assert!(
@@ -349,11 +345,7 @@ fn github_clone_empty_repo() -> Result<()> {
     // When: clone and initialize structure
     let clone_path = base.join("cloned");
     std::process::Command::new("git")
-        .args([
-            "clone",
-            remote_path.to_str().unwrap(),
-            clone_path.to_str().unwrap(),
-        ])
+        .args(["clone", remote_path.to_str().unwrap(), clone_path.to_str().unwrap()])
         .output()?;
 
     // Initialize structure (what setup would do for empty repo)
@@ -521,6 +513,7 @@ fn github_clone_existing_dotstate_repo() -> Result<()> {
         version: 1,
         common: dotstate::utils::profile_manifest::CommonSection {
             synced_files: vec![".gitconfig".to_string()],
+            templates: Vec::new(),
         },
         profiles: vec![
             ProfileInfo {
@@ -597,11 +590,7 @@ fn github_clone_existing_dotstate_repo() -> Result<()> {
     // When: clone
     let clone_path = base.join("cloned");
     let clone_output = std::process::Command::new("git")
-        .args([
-            "clone",
-            remote_path.to_str().unwrap(),
-            clone_path.to_str().unwrap(),
-        ])
+        .args(["clone", remote_path.to_str().unwrap(), clone_path.to_str().unwrap()])
         .output()?;
     assert!(
         clone_output.status.success(),
@@ -615,10 +604,7 @@ fn github_clone_existing_dotstate_repo() -> Result<()> {
     assert_eq!(loaded_manifest.profiles.len(), 2);
     assert!(loaded_manifest.profiles.iter().any(|p| p.name == "work"));
     assert!(loaded_manifest.profiles.iter().any(|p| p.name == "home"));
-    assert!(loaded_manifest
-        .common
-        .synced_files
-        .contains(&".gitconfig".to_string()));
+    assert!(loaded_manifest.common.synced_files.contains(&".gitconfig".to_string()));
 
     // Files are present
     assert!(clone_path.join("work/.workrc").exists());
@@ -688,10 +674,7 @@ fn setup_creates_all_required_files() -> Result<()> {
         "manifest missing"
     );
     assert!(env.repo_path.join(".git").exists(), "git repo missing");
-    assert!(
-        env.profile_path("default").exists(),
-        "default profile dir missing"
-    );
+    assert!(env.profile_path("default").exists(), "default profile dir missing");
     assert!(env.common_path().exists(), "common dir missing");
 
     // Files are valid

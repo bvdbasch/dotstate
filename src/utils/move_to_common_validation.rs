@@ -123,10 +123,9 @@ pub fn validate_move_to_common(
                     }
                     Ok(false) => {
                         // Different content - needs user confirmation
-                        let size_diff = if let (Ok(meta1), Ok(meta2)) = (
-                            fs::metadata(&source_file_path),
-                            fs::metadata(&other_file_path),
-                        ) {
+                        let size_diff = if let (Ok(meta1), Ok(meta2)) =
+                            (fs::metadata(&source_file_path), fs::metadata(&other_file_path))
+                        {
                             Some((meta1.len(), meta2.len()))
                         } else {
                             None
@@ -175,8 +174,7 @@ pub fn validate_move_to_common(
     let has_blocking_conflicts = conflicts.iter().any(|c| {
         matches!(
             c,
-            MoveToCommonConflict::DifferentContentInProfile { .. }
-                | MoveToCommonConflict::PathHierarchyConflict { .. }
+            MoveToCommonConflict::DifferentContentInProfile { .. } | MoveToCommonConflict::PathHierarchyConflict { .. }
         )
     });
 
@@ -297,8 +295,8 @@ fn check_path_hierarchy_conflicts(
         let relative_is_dir = relative_full_path.exists() && relative_full_path.is_dir();
 
         // Also check if path structure suggests it's a directory
-        let relative_looks_like_dir = relative_path.ends_with('/')
-            || (path_buf.components().count() > 1 && path_buf.extension().is_none());
+        let relative_looks_like_dir =
+            relative_path.ends_with('/') || (path_buf.components().count() > 1 && path_buf.extension().is_none());
 
         if relative_is_dir || relative_looks_like_dir {
             // relative_path is a directory - check if synced_file is inside it

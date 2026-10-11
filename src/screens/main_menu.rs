@@ -140,12 +140,16 @@ impl MenuItem {
             MenuItem::SyncWithRemote => {
                 let repo_name = crate::config::default_repo_name();
                 let lines = vec![
-                    Line::from(vec![
-                        Span::styled("Sync with Remote Repository", Style::default().fg(t.success).add_modifier(Modifier::BOLD)),
-                    ]),
+                    Line::from(vec![Span::styled(
+                        "Sync with Remote Repository",
+                        Style::default().fg(t.success).add_modifier(Modifier::BOLD),
+                    )]),
                     Line::from(""),
                     Line::from(vec![
-                        Span::styled("Keep your dotfiles synchronized across all your devices. This feature ", t.text_style()),
+                        Span::styled(
+                            "Keep your dotfiles synchronized across all your devices. This feature ",
+                            t.text_style(),
+                        ),
                         Span::styled("commits", Style::default().fg(t.primary)),
                         Span::styled(" your local changes, ", t.text_style()),
                         Span::styled("pulls", Style::default().fg(t.tertiary)),
@@ -155,19 +159,28 @@ impl MenuItem {
                     ]),
                     Line::from(""),
                     Line::from(vec![
-                        Span::styled("Perfect for when you've made changes on one computer and want to sync them to another. ", t.text_style()),
+                        Span::styled(
+                            "Perfect for when you've made changes on one computer and want to sync them to another. ",
+                            t.text_style(),
+                        ),
                         Span::styled("All changes are automatically merged", t.success_style()),
                         Span::styled(" with your remote repository.", t.text_style()),
                     ]),
                     Line::from(""),
                     Line::from(vec![
                         Span::styled("Your repository is called ", t.text_style()),
-                        Span::styled(repo_name.clone(), Style::default().fg(t.text_emphasis).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            repo_name.clone(),
+                            Style::default().fg(t.text_emphasis).add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(" and should be visible in your GitHub account.", t.text_style()),
                     ]),
                     Line::from(""),
                     Line::from(vec![
-                        Span::styled(icons.lightbulb(), Style::default().fg(t.secondary).add_modifier(Modifier::BOLD)),
+                        Span::styled(
+                            icons.lightbulb(),
+                            Style::default().fg(t.secondary).add_modifier(Modifier::BOLD),
+                        ),
                         Span::styled(" CLI: ", Style::default().fg(t.secondary).add_modifier(Modifier::BOLD)),
                         Span::styled("dotstate sync", t.emphasis_style()),
                         Span::styled(" - Same functionality from the command line", t.text_style()),
@@ -272,9 +285,7 @@ impl MenuItem {
                 let lines = vec![
                     Line::from(vec![Span::styled(
                         "Setup Git Repository",
-                        Style::default()
-                            .fg(t.text_emphasis)
-                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(t.text_emphasis).add_modifier(Modifier::BOLD),
                     )]),
                     Line::from(""),
                     Line::from(vec![
@@ -282,10 +293,7 @@ impl MenuItem {
                             "Configure a git repository to store and sync your dotfiles. ",
                             t.text_style(),
                         ),
-                        Span::styled(
-                            "Choose how you want to set up:",
-                            Style::default().fg(t.primary),
-                        ),
+                        Span::styled("Choose how you want to set up:", Style::default().fg(t.primary)),
                     ]),
                     Line::from(""),
                     Line::from(vec![
@@ -323,30 +331,17 @@ impl MenuItem {
                     Line::from(vec![
                         Span::styled(
                             icons.lightbulb(),
-                            Style::default()
-                                .fg(t.secondary)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(t.secondary).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            " Tip: ",
-                            Style::default()
-                                .fg(t.secondary)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(
-                            "Both options sync your dotfiles across machines!",
-                            t.text_style(),
-                        ),
+                        Span::styled(" Tip: ", Style::default().fg(t.secondary).add_modifier(Modifier::BOLD)),
+                        Span::styled("Both options sync your dotfiles across machines!", t.text_style()),
                     ]),
                 ];
                 Text::from(lines)
             }
             MenuItem::Settings => {
                 let lines = vec![
-                    Line::from(vec![Span::styled(
-                        "Customize Your Experience",
-                        t.title_style(),
-                    )]),
+                    Line::from(vec![Span::styled("Customize Your Experience", t.title_style())]),
                     Line::from(""),
                     Line::from(vec![Span::styled(
                         "Configure DotState to work exactly how you want:",
@@ -382,16 +377,9 @@ impl MenuItem {
                     Line::from(vec![
                         Span::styled(
                             icons.lightbulb(),
-                            Style::default()
-                                .fg(t.secondary)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(t.secondary).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            " Tip: ",
-                            Style::default()
-                                .fg(t.secondary)
-                                .add_modifier(Modifier::BOLD),
-                        ),
+                        Span::styled(" Tip: ", Style::default().fg(t.secondary).add_modifier(Modifier::BOLD)),
                         Span::styled("Changes are applied instantly!", t.text_style()),
                     ]),
                 ];
@@ -428,10 +416,7 @@ impl MenuItem {
     /// Convert `MenuItem` to index
     #[must_use]
     pub fn to_index(self) -> usize {
-        Self::all()
-            .iter()
-            .position(|item| *item == self)
-            .unwrap_or(0)
+        Self::all().iter().position(|item| *item == self).unwrap_or(0)
     }
 }
 
@@ -657,18 +642,13 @@ impl MainMenuScreen {
                 let lines = vec![
                     Line::from(vec![Span::styled(
                         "Update Available!",
-                        Style::default()
-                            .fg(t.text_emphasis)
-                            .add_modifier(Modifier::BOLD),
+                        Style::default().fg(t.text_emphasis).add_modifier(Modifier::BOLD),
                     )]),
                     Line::from(""),
                     Line::from(vec![
                         Span::styled("A new version of DotState is available: ", t.text_style()),
                         Span::styled(
-                            format!(
-                                "{} → {}",
-                                update_info.current_version, update_info.latest_version
-                            ),
+                            format!("{} → {}", update_info.current_version, update_info.latest_version),
                             Style::default().fg(t.success).add_modifier(Modifier::BOLD),
                         ),
                     ]),
@@ -686,10 +666,7 @@ impl MainMenuScreen {
                     Line::from(vec![
                         Span::styled("• ", Style::default().fg(t.text_emphasis)),
                         Span::styled("Or: ", t.text_style()),
-                        Span::styled(
-                            "cargo install dotstate --force",
-                            Style::default().fg(t.primary),
-                        ),
+                        Span::styled("cargo install dotstate --force", Style::default().fg(t.primary)),
                     ]),
                     Line::from(vec![
                         Span::styled("• ", Style::default().fg(t.text_emphasis)),
@@ -713,8 +690,7 @@ impl MainMenuScreen {
             }
 
             // Get stats from manifest
-            let manifest = crate::utils::ProfileManifest::load_or_backfill(&config.repo_path)
-                .unwrap_or_default();
+            let manifest = crate::utils::ProfileManifest::load_or_backfill(&config.repo_path).unwrap_or_default();
             let synced_count = manifest
                 .profiles
                 .iter()
@@ -740,25 +716,16 @@ impl MainMenuScreen {
             if status.ahead > 0 || status.behind > 0 {
                 stats.push_str("\n\nRemote Status:");
                 if status.behind > 0 {
-                    stats.push_str(&format!(
-                        "\n  ↓ {} commit(s) behind (pull needed)",
-                        status.behind
-                    ));
+                    stats.push_str(&format!("\n  ↓ {} commit(s) behind (pull needed)", status.behind));
                 }
                 if status.ahead > 0 {
-                    stats.push_str(&format!(
-                        "\n  ↑ {} commit(s) ahead (push needed)",
-                        status.ahead
-                    ));
+                    stats.push_str(&format!("\n  ↑ {} commit(s) ahead (push needed)", status.ahead));
                 }
             }
 
             // Add pending changes if any
             if !status.uncommitted_files.is_empty() {
-                stats.push_str(&format!(
-                    "\n\nPending Changes ({}):",
-                    status.uncommitted_files.len()
-                ));
+                stats.push_str(&format!("\n\nPending Changes ({}):", status.uncommitted_files.len()));
                 // Show first few files (limit to avoid overflow)
                 let max_files = 5.min(status.uncommitted_files.len());
                 for file in status.uncommitted_files.iter().take(max_files) {
@@ -827,9 +794,8 @@ impl MainMenuScreen {
                 let icon = menu_item.icon(&self.icons);
                 let text = menu_item.text();
                 let is_enabled = menu_item.is_enabled(is_setup);
-                let has_action_needed = self.git_status.has_changes
-                    || self.git_status.ahead > 0
-                    || self.git_status.behind > 0;
+                let has_action_needed =
+                    self.git_status.has_changes || self.git_status.ahead > 0 || self.git_status.behind > 0;
                 let color = menu_item.color(has_action_needed);
 
                 let mut item = MenuWidgetItem::new(icon, text, color).enabled(is_enabled);
@@ -867,10 +833,7 @@ impl MainMenuScreen {
                 "Update available: {} → {}",
                 update_info.current_version, update_info.latest_version
             );
-            widget_items.push(
-                MenuWidgetItem::new(self.icons.update(), &update_text, t.text_emphasis)
-                    .enabled(true),
-            );
+            widget_items.push(MenuWidgetItem::new(self.icons.update(), &update_text, t.text_emphasis).enabled(true));
         }
 
         let menu_block = Block::default()
@@ -939,8 +902,7 @@ impl MainMenuScreen {
         frame.render_widget(explanation_para, right_split[0]);
 
         // Stats block with colorful styling
-        let has_pending =
-            self.git_status.has_changes || self.git_status.ahead > 0 || self.git_status.behind > 0;
+        let has_pending = self.git_status.has_changes || self.git_status.ahead > 0 || self.git_status.behind > 0;
         let stats_color = if has_pending { t.warning } else { t.success };
         let stats_icon = if has_pending {
             self.icons.warning()
@@ -953,11 +915,7 @@ impl MainMenuScreen {
             .border_style(Style::default().fg(stats_color))
             .border_type(t.border_type(false))
             .title(format!(" {stats_icon} Status "))
-            .title_style(
-                Style::default()
-                    .fg(stats_color)
-                    .add_modifier(Modifier::BOLD),
-            )
+            .title_style(Style::default().fg(stats_color).add_modifier(Modifier::BOLD))
             .title_alignment(Alignment::Center)
             .padding(ratatui::widgets::Padding::new(1, 1, 1, 1));
 
@@ -972,23 +930,15 @@ impl MainMenuScreen {
                             "Synced Files: ",
                             Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            line.strip_prefix("Synced Files: ").unwrap_or(""),
-                            t.text_style(),
-                        ),
+                        Span::styled(line.strip_prefix("Synced Files: ").unwrap_or(""), t.text_style()),
                     ])
                 } else if line.starts_with("Profiles:") {
                     Line::from(vec![
                         Span::styled(
                             "Profiles: ",
-                            Style::default()
-                                .fg(t.secondary)
-                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(t.secondary).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            line.strip_prefix("Profiles: ").unwrap_or(""),
-                            t.text_style(),
-                        ),
+                        Span::styled(line.strip_prefix("Profiles: ").unwrap_or(""), t.text_style()),
                     ])
                 } else if line.starts_with("Repository:") {
                     Line::from(vec![
@@ -996,10 +946,7 @@ impl MainMenuScreen {
                             "Repository: ",
                             Style::default().fg(t.tertiary).add_modifier(Modifier::BOLD),
                         ),
-                        Span::styled(
-                            line.strip_prefix("Repository: ").unwrap_or(""),
-                            t.text_style(),
-                        ),
+                        Span::styled(line.strip_prefix("Repository: ").unwrap_or(""), t.text_style()),
                     ])
                 } else if line.starts_with("Pending Changes") {
                     Line::from(vec![Span::styled(
@@ -1014,9 +961,7 @@ impl MainMenuScreen {
                 } else if line.contains("... and") {
                     Line::from(vec![Span::styled(
                         line,
-                        Style::default()
-                            .fg(t.text_muted)
-                            .add_modifier(Modifier::ITALIC),
+                        Style::default().fg(t.text_muted).add_modifier(Modifier::ITALIC),
                     )])
                 } else {
                     Line::from(Span::styled(line, t.text_style()))
@@ -1024,9 +969,7 @@ impl MainMenuScreen {
             })
             .collect();
 
-        let stats_para = Paragraph::new(stats_lines)
-            .wrap(Wrap { trim: true })
-            .block(stats_block);
+        let stats_para = Paragraph::new(stats_lines).wrap(Wrap { trim: true }).block(stats_block);
 
         frame.render_widget(stats_para, right_split[1]);
 
@@ -1039,9 +982,7 @@ impl MainMenuScreen {
                 let theme_name = t.theme_type.to_config_string();
                 c.keymap.footer_navigation(theme_name)
             })
-            .unwrap_or_else(|| {
-                "↑↓: Navigate | Enter: Select | q: Back | ?: Help | t: Theme".to_string()
-            });
+            .unwrap_or_else(|| "↑↓: Navigate | Enter: Select | q: Back | ?: Help | t: Theme".to_string());
         let _ = Footer::render(frame, footer_chunk, &footer_text)?;
 
         Ok(())
@@ -1080,11 +1021,7 @@ impl MainMenuScreen {
 
     /// Build the update message from `UpdateInfo`.
     fn build_update_message(&self, info: &UpdateInfo) -> (String, String) {
-        let title = format!(
-            "{} Version {} Available!",
-            self.icons.update(),
-            info.latest_version
-        );
+        let title = format!("{} Version {} Available!", self.icons.update(), info.latest_version);
         let content = format!(
             "{} New version available: {} → {}\n\n\
             Update options:\n\n\
@@ -1100,10 +1037,7 @@ impl MainMenuScreen {
             info.latest_version,
             info.release_url
                 .replace("/releases/tag/", "/releases/download/")
-                .replace(
-                    &info.latest_version,
-                    &format!("{}/install.sh", info.latest_version)
-                )
+                .replace(&info.latest_version, &format!("{}/install.sh", info.latest_version))
         );
         (title, content)
     }
@@ -1131,8 +1065,7 @@ impl MainMenuScreen {
                     }
 
                     // Check if click is in any menu clickable area
-                    if let Some(&menu_item) = self.clickable_areas.hit_test(mouse.column, mouse.row)
-                    {
+                    if let Some(&menu_item) = self.clickable_areas.hit_test(mouse.column, mouse.row) {
                         self.set_selected_item(menu_item);
                         // Only trigger action if item is enabled
                         if menu_item.is_enabled(is_setup) {

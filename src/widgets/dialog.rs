@@ -178,11 +178,8 @@ impl<'a> Dialog<'a> {
         };
 
         // Calculate modal height
-        let modal_height =
-            (f32::from(area.height) * (f32::from(self.height_percent) / 100.0)) as u16;
-        let modal_height = modal_height
-            .max(min_total_height)
-            .min(area.height.saturating_sub(2));
+        let modal_height = (f32::from(area.height) * (f32::from(self.height_percent) / 100.0)) as u16;
+        let modal_height = modal_height.max(min_total_height).min(area.height.saturating_sub(2));
 
         // Center the modal
         let popup_x = area.x + (area.width.saturating_sub(modal_width)) / 2;

@@ -252,11 +252,7 @@ impl TestEnv {
             tracking.symlinks.iter().any(|s| s.target == home_path),
             "Expected {} to be tracked, but it isn't. Tracked targets: {:?}",
             home_relative,
-            tracking
-                .symlinks
-                .iter()
-                .map(|s| &s.target)
-                .collect::<Vec<_>>()
+            tracking.symlinks.iter().map(|s| &s.target).collect::<Vec<_>>()
         );
     }
 
@@ -308,10 +304,7 @@ impl TestEnv {
     pub fn assert_file_in_common(&self, file_relative: &str) {
         let manifest = self.load_manifest().expect("Failed to load manifest");
         assert!(
-            manifest
-                .common
-                .synced_files
-                .contains(&file_relative.to_string()),
+            manifest.common.synced_files.contains(&file_relative.to_string()),
             "Expected {} to be in common synced_files, but it isn't. Files: {:?}",
             file_relative,
             manifest.common.synced_files
@@ -322,10 +315,7 @@ impl TestEnv {
     pub fn assert_file_not_in_common(&self, file_relative: &str) {
         let manifest = self.load_manifest().expect("Failed to load manifest");
         assert!(
-            !manifest
-                .common
-                .synced_files
-                .contains(&file_relative.to_string()),
+            !manifest.common.synced_files.contains(&file_relative.to_string()),
             "Expected {} to NOT be in common synced_files, but it is",
             file_relative
         );
@@ -350,11 +340,7 @@ impl TestEnv {
             manifest.profiles.iter().any(|p| p.name == profile_name),
             "Expected profile {} to exist, but it doesn't. Profiles: {:?}",
             profile_name,
-            manifest
-                .profiles
-                .iter()
-                .map(|p| &p.name)
-                .collect::<Vec<_>>()
+            manifest.profiles.iter().map(|p| &p.name).collect::<Vec<_>>()
         );
     }
 
@@ -423,11 +409,7 @@ impl TestEnv {
     }
 
     /// Create a symlink without updating tracking (simulates manual intervention).
-    pub fn create_symlink_without_tracking(
-        &self,
-        home_relative: &str,
-        target: &Path,
-    ) -> Result<()> {
+    pub fn create_symlink_without_tracking(&self, home_relative: &str, target: &Path) -> Result<()> {
         let link_path = self.home_path(home_relative);
         if let Some(parent) = link_path.parent() {
             fs::create_dir_all(parent)?;
@@ -448,11 +430,7 @@ impl TestEnv {
     /// Remove a file from manifest without touching the filesystem.
     pub fn remove_from_manifest(&self, profile_name: &str, file_relative: &str) -> Result<()> {
         let mut manifest = self.load_manifest()?;
-        if let Some(profile) = manifest
-            .profiles
-            .iter_mut()
-            .find(|p| p.name == profile_name)
-        {
+        if let Some(profile) = manifest.profiles.iter_mut().find(|p| p.name == profile_name) {
             profile.synced_files.retain(|f| f != file_relative);
         }
         manifest.save(&self.repo_path)
@@ -466,9 +444,9 @@ pub struct TestEnvBuilder {
     profiles: Vec<(String, Option<String>)>, // (name, description)
     active_profile: Option<String>,
     profile_activated: bool,
-    home_files: Vec<(String, String)>, // (relative_path, content)
+    home_files: Vec<(String, String)>,           // (relative_path, content)
     synced_files: Vec<(String, String, String)>, // (profile_name, relative_path, content)
-    common_files: Vec<(String, String)>, // (relative_path, content)
+    common_files: Vec<(String, String)>,         // (relative_path, content)
     backup_enabled: bool,
     init_git: bool,
     env_override: bool,
@@ -484,8 +462,7 @@ impl TestEnvBuilder {
 
     /// Add a profile with description.
     pub fn with_profile_desc(mut self, name: &str, description: &str) -> Self {
-        self.profiles
-            .push((name.to_string(), Some(description.to_string())));
+        self.profiles.push((name.to_string(), Some(description.to_string())));
         self
     }
 
@@ -505,25 +482,20 @@ impl TestEnvBuilder {
 
     /// Add a file to the fake home directory (not synced).
     pub fn with_home_file(mut self, relative_path: &str, content: &str) -> Self {
-        self.home_files
-            .push((relative_path.to_string(), content.to_string()));
+        self.home_files.push((relative_path.to_string(), content.to_string()));
         self
     }
 
     /// Add a file that is already synced (in repo, symlinked from home, tracked).
     pub fn with_synced_file(mut self, profile: &str, relative_path: &str, content: &str) -> Self {
-        self.synced_files.push((
-            profile.to_string(),
-            relative_path.to_string(),
-            content.to_string(),
-        ));
+        self.synced_files
+            .push((profile.to_string(), relative_path.to_string(), content.to_string()));
         self
     }
 
     /// Add a common file (synced across all profiles).
     pub fn with_common_file(mut self, relative_path: &str, content: &str) -> Self {
-        self.common_files
-            .push((relative_path.to_string(), content.to_string()));
+        self.common_files.push((relative_path.to_string(), content.to_string()));
         self
     }
 
@@ -692,10 +664,7 @@ impl TestEnvBuilder {
         let config = Config {
             repo_path: repo_path.clone(),
             repo_mode: RepoMode::Local,
-            active_profile: self
-                .active_profile
-                .clone()
-                .unwrap_or_else(|| "default".to_string()),
+            active_profile: self.active_profile.clone().unwrap_or_else(|| "default".to_string()),
             profile_activated: self.profile_activated,
             backup_enabled: self.backup_enabled,
             ..Default::default()

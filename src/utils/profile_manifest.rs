@@ -98,31 +98,96 @@ pub enum TemplateEngine {
     Custom,
 }
 
-/// Template definition.
+impl TemplateEngine {
+    /// File extension (without the leading dot) applied to source template files
+    /// for built-in engines. The extension identifies the engine's format
+    /// (e.g. `tpl` for 1Password inject). `Custom` has no fixed extension — the
+    /// user supplies one, so this returns `None`.
+    #[must_use]
+    pub fn default_extension(&self) -> Option<&'static str> {
+        match self {
+            TemplateEngine::OpInject => Some("tpl"),
+            TemplateEngine::Custom => None,
+        }
+    }
+}
+
+/// Template definition stored per-profile in the manifest.
 ///
-/// A template is a committed source file in the repo that is rendered to an
-/// arbitrary destination path by an engine. Unlike synced files, the rendered
-/// output is NOT symlinked or tracked by `DotState` — it is produced on demand
-/// (e.g. to materialize secrets resolved from a password manager) and is
-/// expected to be git-ignored at its destination.
+/// A template is a committed source file that is rendered to a home-relative
+/// destination by an engine. Like synced files, the source lives in the repo
+/// under a profile subtree — `<repo>/templates/<profile>/<destination>.<ext>` —
+/// so the source location is *derived* from the destination, engine, and owning
+/// profile rather than stored. Unlike synced files, the rendered output is NOT
+/// symlinked or tracked by `DotState`; it is produced on demand (e.g. to
+/// materialize secrets resolved from a password manager) and is expected to be
+/// git-ignored at its destination.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Template {
-    /// Display name for the template
+    /// Display name for the template (no file extension; the extension is
+    /// derived from the engine, or from `extension` for the `Custom` engine).
     pub name: String,
-    /// Source template path, relative to the repo root (e.g. "git/config.tpl")
-    pub source: String,
-    /// Destination path where the rendered file lands.
-    /// May be absolute or start with `~` for the home directory.
+    /// Destination path, relative to the home directory (e.g. ".config/git/config").
     pub destination: String,
     /// Which engine renders this template
     pub engine: TemplateEngine,
+    /// Source file extension (without leading dot). Only meaningful for the
+    /// `Custom` engine; built-in engines derive it from the engine itself.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extension: Option<String>,
     /// Render command (only for the `Custom` engine; derived for built-ins).
     /// Supports `{source}` and `{destination}` placeholders.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub render_command: Option<String>,
     /// Optional description (cached metadata, not required)
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+}
+
+impl Template {
+    /// The source file extension this template uses (without leading dot).
+    #[must_use]
+    pub fn source_extension(&self) -> String {
+        self.engine
+            .default_extension()
+            .map(ToString::to_string)
+            .or_else(|| self.extension.clone())
+            .unwrap_or_default()
+    }
+
+    /// The source path relative to the repo root, given the owning profile.
+    ///
+    /// Layout: `templates/<source_profile>/<destination>.<ext>`.
+    #[must_use]
+    pub fn source_relative_path(&self, source_profile: &str) -> String {
+        let ext = self.source_extension();
+        let dest = self.destination.trim_start_matches('/');
+        if ext.is_empty() {
+            format!("templates/{source_profile}/{dest}")
+        } else {
+            format!("templates/{source_profile}/{dest}.{ext}")
+        }
+    }
+}
+
+/// A resolved template entry indicating which profile (or "common") a template
+/// is sourced from after walking the inheritance chain and merging common
+/// templates. Mirrors `ResolvedFile` for the templates feature.
+#[derive(Debug, Clone)]
+pub struct ResolvedTemplate {
+    /// The underlying template definition.
+    pub template: Template,
+    /// Which profile or "common" this template is sourced from.
+    /// Determines the repo subtree: `templates/<source_profile>/<destination>.<ext>`.
+    pub source_profile: String,
+}
+
+impl ResolvedTemplate {
+    /// The source path relative to the repo root for this resolved template.
+    #[must_use]
+    pub fn source_relative_path(&self) -> String {
+        self.template.source_relative_path(&self.source_profile)
+    }
 }
 
 /// Common section for files shared across all profiles
@@ -131,10 +196,13 @@ pub struct CommonSection {
     /// Files synced to all profiles (relative paths from home directory)
     #[serde(default)]
     pub synced_files: Vec<String>,
+    /// Templates shared across all profiles (lowest priority in resolution)
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub templates: Vec<Template>,
 }
 
 /// Reserved profile names that cannot be used
-pub const RESERVED_PROFILE_NAMES: &[&str] = &["common"];
+pub const RESERVED_PROFILE_NAMES: &[&str] = &["common", "templates"];
 
 /// Profile manifest stored in the repository root
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -204,17 +272,11 @@ impl ProfileManifest {
             // Migrate if needed
             if manifest.version < CURRENT_VERSION {
                 let old_version = manifest.version;
-                tracing::info!(
-                    "Migrating manifest from v{} to v{}",
-                    old_version,
-                    CURRENT_VERSION
-                );
+                tracing::info!("Migrating manifest from v{} to v{}", old_version, CURRENT_VERSION);
                 manifest = Self::migrate(manifest)?;
 
                 // Backup, save, cleanup
-                super::migrate_file(&manifest_path, old_version, "toml", || {
-                    manifest.save(repo_path)
-                })?;
+                super::migrate_file(&manifest_path, old_version, "toml", || manifest.save(repo_path))?;
             }
 
             // Sort synced_files alphabetically to ensure consistent ordering
@@ -256,6 +318,12 @@ impl ProfileManifest {
                     continue;
                 }
 
+                // Skip the reserved `templates` tree — it holds template sources
+                // (`templates/<profile>/...`), not a profile of its own.
+                if name == "templates" {
+                    continue;
+                }
+
                 // Check if this looks like a profile/common folder (has files in it)
                 if let Ok(dir_entries) = std::fs::read_dir(&path) {
                     let has_files = dir_entries.into_iter().next().is_some();
@@ -286,11 +354,7 @@ impl ProfileManifest {
     }
 
     /// Recursively scan folder for files
-    fn scan_folder_files_recursive(
-        base_path: &Path,
-        current_path: &Path,
-        files: &mut Vec<String>,
-    ) -> Result<()> {
+    fn scan_folder_files_recursive(base_path: &Path, current_path: &Path, files: &mut Vec<String>) -> Result<()> {
         if let Ok(entries) = std::fs::read_dir(current_path) {
             for entry in entries.flatten() {
                 let path = entry.path();
@@ -318,9 +382,7 @@ impl ProfileManifest {
             profile.packages = packages;
             Ok(())
         } else {
-            Err(anyhow::anyhow!(
-                "Profile '{profile_name}' not found in manifest"
-            ))
+            Err(anyhow::anyhow!("Profile '{profile_name}' not found in manifest"))
         }
     }
 
@@ -349,8 +411,7 @@ impl ProfileManifest {
         let manifest_path = Self::manifest_path(repo_path);
         let temp_path = manifest_path.with_extension("toml.tmp");
 
-        let content =
-            toml::to_string_pretty(self).with_context(|| "Failed to serialize profile manifest")?;
+        let content = toml::to_string_pretty(self).with_context(|| "Failed to serialize profile manifest")?;
 
         // Write to temp file first
         std::fs::write(&temp_path, &content)
@@ -369,12 +430,7 @@ impl ProfileManifest {
     }
 
     /// Add a profile to the manifest with optional inheritance
-    pub fn add_profile_with_inherits(
-        &mut self,
-        name: String,
-        description: Option<String>,
-        inherits: Option<String>,
-    ) {
+    pub fn add_profile_with_inherits(&mut self, name: String, description: Option<String>, inherits: Option<String>) {
         // Check if profile already exists
         if !self.profiles.iter().any(|p| p.name == name) {
             self.profiles.push(ProfileInfo {
@@ -389,11 +445,7 @@ impl ProfileManifest {
     }
 
     /// Update synced files for a profile
-    pub fn update_synced_files(
-        &mut self,
-        profile_name: &str,
-        synced_files: Vec<String>,
-    ) -> Result<()> {
+    pub fn update_synced_files(&mut self, profile_name: &str, synced_files: Vec<String>) -> Result<()> {
         if let Some(profile) = self.profiles.iter_mut().find(|p| p.name == profile_name) {
             // Sort alphabetically to ensure consistent ordering and prevent unnecessary diffs
             let mut sorted_files = synced_files;
@@ -401,9 +453,7 @@ impl ProfileManifest {
             profile.synced_files = sorted_files;
             Ok(())
         } else {
-            Err(anyhow::anyhow!(
-                "Profile '{profile_name}' not found in manifest"
-            ))
+            Err(anyhow::anyhow!("Profile '{profile_name}' not found in manifest"))
         }
     }
 
@@ -432,9 +482,7 @@ impl ProfileManifest {
         if found {
             Ok(())
         } else {
-            Err(anyhow::anyhow!(
-                "Profile '{old_name}' not found in manifest"
-            ))
+            Err(anyhow::anyhow!("Profile '{old_name}' not found in manifest"))
         }
     }
 
@@ -483,9 +531,7 @@ impl ProfileManifest {
     /// Check if a file is in the common section
     #[must_use]
     pub fn is_common_file(&self, relative_path: &str) -> bool {
-        self.common
-            .synced_files
-            .contains(&relative_path.to_string())
+        self.common.synced_files.contains(&relative_path.to_string())
     }
 
     // ==================== Migration Methods ====================
@@ -562,17 +608,13 @@ impl ProfileManifest {
             visited.insert(current.clone());
             chain.push(current.clone());
 
-            let profile = self
-                .profiles
-                .iter()
-                .find(|p| p.name == current)
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Profile '{}' not found in manifest (referenced in inheritance chain: [{}])",
-                        current,
-                        chain.join(" -> ")
-                    )
-                })?;
+            let profile = self.profiles.iter().find(|p| p.name == current).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Profile '{}' not found in manifest (referenced in inheritance chain: [{}])",
+                    current,
+                    chain.join(" -> ")
+                )
+            })?;
 
             match &profile.inherits {
                 Some(parent) => {
@@ -613,9 +655,7 @@ impl ProfileManifest {
 
         // Second pass: add common files only where no profile in chain provides them
         for file in &self.common.synced_files {
-            file_map
-                .entry(file.clone())
-                .or_insert_with(|| "common".to_string());
+            file_map.entry(file.clone()).or_insert_with(|| "common".to_string());
         }
 
         // Convert to sorted Vec<ResolvedFile>
@@ -658,27 +698,45 @@ impl ProfileManifest {
     }
 
     /// Resolve the full list of templates for a profile, walking the inheritance
-    /// chain and merging.
+    /// chain and merging with common templates.
     ///
-    /// Child templates override parent templates with the same `destination`
-    /// key (the rendered output location is what uniquely identifies a template).
-    pub fn resolve_templates(&self, profile_name: &str) -> Result<Vec<Template>> {
+    /// Resolution priority (highest to lowest), keyed by `destination`:
+    /// 1. Active profile's own templates
+    /// 2. Parent profile's templates
+    /// 3. Grandparent, etc.
+    /// 4. Common templates (lowest priority, overridden by any profile in chain)
+    ///
+    /// Each destination appears at most once; the highest-priority source wins.
+    pub fn resolve_templates(&self, profile_name: &str) -> Result<Vec<ResolvedTemplate>> {
         let chain = self.inheritance_chain(profile_name)?;
 
-        // Walk from root ancestor to child so child overrides parent
-        // Key: destination -> Template
-        let mut tpl_map: HashMap<String, Template> = HashMap::new();
+        // Key: destination -> (Template, source_profile)
+        // Walk from root ancestor to child so child overrides parent.
+        let mut tpl_map: HashMap<String, (Template, String)> = HashMap::new();
 
         for profile_name in chain.iter().rev() {
             if let Some(profile) = self.profiles.iter().find(|p| &p.name == profile_name) {
                 for tpl in &profile.templates {
-                    tpl_map.insert(tpl.destination.clone(), tpl.clone());
+                    tpl_map.insert(tpl.destination.clone(), (tpl.clone(), profile_name.clone()));
                 }
             }
         }
 
-        let mut templates: Vec<Template> = tpl_map.into_values().collect();
-        templates.sort_by(|a, b| a.name.cmp(&b.name));
+        // Add common templates only where no profile in chain provides them.
+        for tpl in &self.common.templates {
+            tpl_map
+                .entry(tpl.destination.clone())
+                .or_insert_with(|| (tpl.clone(), "common".to_string()));
+        }
+
+        let mut templates: Vec<ResolvedTemplate> = tpl_map
+            .into_values()
+            .map(|(template, source_profile)| ResolvedTemplate {
+                template,
+                source_profile,
+            })
+            .collect();
+        templates.sort_by(|a, b| a.template.name.cmp(&b.template.name));
 
         Ok(templates)
     }
@@ -733,9 +791,7 @@ impl ProfileManifest {
             }
             Ok(())
         } else {
-            Err(anyhow::anyhow!(
-                "Profile '{profile_name}' not found in manifest"
-            ))
+            Err(anyhow::anyhow!("Profile '{profile_name}' not found in manifest"))
         }
     }
 
@@ -745,9 +801,7 @@ impl ProfileManifest {
         if let Some(profile) = self.profiles.iter_mut().find(|p| p.name == profile_name) {
             profile.synced_files.retain(|f| f != relative_path);
         } else {
-            return Err(anyhow::anyhow!(
-                "Profile '{profile_name}' not found in manifest"
-            ));
+            return Err(anyhow::anyhow!("Profile '{profile_name}' not found in manifest"));
         }
 
         // Add to common
@@ -759,9 +813,7 @@ impl ProfileManifest {
     pub fn move_from_common(&mut self, profile_name: &str, relative_path: &str) -> Result<()> {
         // Remove from common
         if !self.remove_common_file(relative_path) {
-            return Err(anyhow::anyhow!(
-                "File '{relative_path}' not found in common section"
-            ));
+            return Err(anyhow::anyhow!("File '{relative_path}' not found in common section"));
         }
 
         // Add to profile
@@ -772,9 +824,7 @@ impl ProfileManifest {
             }
             Ok(())
         } else {
-            Err(anyhow::anyhow!(
-                "Profile '{profile_name}' not found in manifest"
-            ))
+            Err(anyhow::anyhow!("Profile '{profile_name}' not found in manifest"))
         }
     }
 }
@@ -833,8 +883,83 @@ mod tests {
         assert!(ProfileManifest::is_reserved_name("common"));
         assert!(ProfileManifest::is_reserved_name("Common"));
         assert!(ProfileManifest::is_reserved_name("COMMON"));
+        assert!(ProfileManifest::is_reserved_name("templates"));
+        assert!(ProfileManifest::is_reserved_name("Templates"));
         assert!(!ProfileManifest::is_reserved_name("work"));
         assert!(!ProfileManifest::is_reserved_name("personal"));
+    }
+
+    fn tpl(name: &str, dest: &str) -> Template {
+        Template {
+            name: name.to_string(),
+            destination: dest.to_string(),
+            engine: TemplateEngine::OpInject,
+            extension: None,
+            render_command: None,
+            description: None,
+        }
+    }
+
+    #[test]
+    fn test_resolve_templates_inheritance_and_common_merge() {
+        let mut manifest = ProfileManifest::default();
+        manifest.add_profile("base".to_string(), None);
+        manifest.add_profile_with_inherits("work".to_string(), None, Some("base".to_string()));
+
+        // common (lowest), base (middle), work (highest) — all distinct dests,
+        // plus an override where work replaces a base destination.
+        manifest.common.templates.push(tpl("shared", ".config/shared"));
+        {
+            let base = manifest.profiles.iter_mut().find(|p| p.name == "base").unwrap();
+            base.templates.push(tpl("gitconfig", ".config/git/config"));
+            base.templates.push(tpl("overridden", ".config/over"));
+        }
+        {
+            let work = manifest.profiles.iter_mut().find(|p| p.name == "work").unwrap();
+            work.templates.push(tpl("work-only", ".config/work"));
+            // Same destination as base's "overridden" → work wins.
+            work.templates.push(tpl("work-over", ".config/over"));
+        }
+
+        let resolved = manifest.resolve_templates("work").unwrap();
+        // 4 unique destinations: shared(common), git(base), over(work-override), work(work).
+        assert_eq!(resolved.len(), 4);
+
+        let by_dest = |d: &str| resolved.iter().find(|r| r.template.destination == d).unwrap();
+        assert_eq!(by_dest(".config/shared").source_profile, "common");
+        assert_eq!(by_dest(".config/git/config").source_profile, "base");
+        assert_eq!(by_dest(".config/work").source_profile, "work");
+        // Override: work provides the ".config/over" destination.
+        let over = by_dest(".config/over");
+        assert_eq!(over.source_profile, "work");
+        assert_eq!(over.template.name, "work-over");
+
+        // Derived source path mirrors destination under the owning profile.
+        assert_eq!(
+            by_dest(".config/git/config").source_relative_path(),
+            "templates/base/.config/git/config.tpl"
+        );
+        assert_eq!(
+            by_dest(".config/shared").source_relative_path(),
+            "templates/common/.config/shared.tpl"
+        );
+    }
+
+    #[test]
+    fn test_custom_template_extension_in_source_path() {
+        let t = Template {
+            name: "work".to_string(),
+            destination: ".config/git/work".to_string(),
+            engine: TemplateEngine::Custom,
+            extension: Some("j2".to_string()),
+            render_command: Some("render".to_string()),
+            description: None,
+        };
+        assert_eq!(t.source_extension(), "j2");
+        assert_eq!(
+            t.source_relative_path("personal"),
+            "templates/personal/.config/git/work.j2"
+        );
     }
 
     #[test]
@@ -924,8 +1049,7 @@ synced_files = [".zshrc"]
         assert!(content.contains(&format!("version = {CURRENT_VERSION}")));
 
         // Backup should be cleaned up
-        let backup_path =
-            ProfileManifest::manifest_path(repo_path).with_extension("toml.backup-v0");
+        let backup_path = ProfileManifest::manifest_path(repo_path).with_extension("toml.backup-v0");
         assert!(!backup_path.exists());
     }
 
@@ -954,8 +1078,7 @@ synced_files = []
         assert_eq!(loaded.version, CURRENT_VERSION);
 
         // No backup should exist
-        let backup_path =
-            ProfileManifest::manifest_path(repo_path).with_extension("toml.backup-v0");
+        let backup_path = ProfileManifest::manifest_path(repo_path).with_extension("toml.backup-v0");
         assert!(!backup_path.exists());
     }
 
@@ -1020,11 +1143,7 @@ synced_files = [".zshrc"]
     fn test_inheritance_chain_simple() {
         let mut manifest = ProfileManifest::default();
         manifest.add_profile("grandparent".to_string(), None);
-        manifest.add_profile_with_inherits(
-            "parent".to_string(),
-            None,
-            Some("grandparent".to_string()),
-        );
+        manifest.add_profile_with_inherits("parent".to_string(), None, Some("grandparent".to_string()));
         manifest.add_profile_with_inherits("child".to_string(), None, Some("parent".to_string()));
 
         let chain = manifest.inheritance_chain("child").unwrap();
@@ -1278,16 +1397,9 @@ synced_files = [".zshrc"]
         manifest.add_profile("child".to_string(), None);
 
         // Set inheritance
-        manifest
-            .set_inherits("child", Some("base".to_string()))
-            .unwrap();
+        manifest.set_inherits("child", Some("base".to_string())).unwrap();
         assert_eq!(
-            manifest
-                .profiles
-                .iter()
-                .find(|p| p.name == "child")
-                .unwrap()
-                .inherits,
+            manifest.profiles.iter().find(|p| p.name == "child").unwrap().inherits,
             Some("base".to_string())
         );
 

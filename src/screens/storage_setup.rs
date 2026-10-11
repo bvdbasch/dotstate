@@ -12,8 +12,7 @@ use crate::screens::screen_trait::{RenderContext, Screen, ScreenAction, ScreenCo
 use crate::styles::theme;
 use crate::ui::{GitHubSetupData, GitHubSetupStep};
 use crate::utils::{
-    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style,
-    MouseRegions, TextInput,
+    create_split_layout, create_standard_layout, focused_border_style, unfocused_border_style, MouseRegions, TextInput,
 };
 use crate::widgets::{Menu, MenuItem, MenuState, TextInputWidget, TextInputWidgetExt};
 use anyhow::Result;
@@ -316,13 +315,7 @@ impl StorageSetupScreen {
     }
 
     /// Render GitHub form fields
-    fn render_github_form(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        ctx: &RenderContext,
-        is_pane_focused: bool,
-    ) {
+    fn render_github_form(&mut self, frame: &mut Frame, area: Rect, ctx: &RenderContext, is_pane_focused: bool) {
         let t = theme();
         let icons = self.icons(ctx);
 
@@ -397,17 +390,9 @@ impl StorageSetupScreen {
         };
 
         let vis_text = if self.state.is_private {
-            format!(
-                "[{}] Private    [{}] Public",
-                icons.check(),
-                icons.uncheck()
-            )
+            format!("[{}] Private    [{}] Public", icons.check(), icons.uncheck())
         } else {
-            format!(
-                "[{}] Private    [{}] Public",
-                icons.uncheck(),
-                icons.check()
-            )
+            format!("[{}] Private    [{}] Public", icons.uncheck(), icons.check())
         };
 
         let vis_block = Block::default()
@@ -415,26 +400,19 @@ impl StorageSetupScreen {
             .border_style(vis_border)
             .title(" Visibility ");
 
-        let vis_para =
-            Paragraph::new(vis_text)
-                .block(vis_block)
-                .style(if self.state.is_reconfiguring {
-                    t.muted_style()
-                } else {
-                    t.text_style()
-                });
+        let vis_para = Paragraph::new(vis_text)
+            .block(vis_block)
+            .style(if self.state.is_reconfiguring {
+                t.muted_style()
+            } else {
+                t.text_style()
+            });
         frame.render_widget(vis_para, fields[3]);
         self.form_field_regions.add(fields[3], 3);
     }
 
     /// Render Local form fields
-    fn render_local_form(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        ctx: &RenderContext,
-        is_pane_focused: bool,
-    ) {
+    fn render_local_form(&mut self, frame: &mut Frame, area: Rect, ctx: &RenderContext, is_pane_focused: bool) {
         let t = theme();
         let icons = self.icons(ctx);
 
@@ -470,10 +448,7 @@ impl StorageSetupScreen {
         // Instructions
         let instructions = vec![
             Line::from(vec![
-                Span::styled(
-                    format!("{} ", icons.lightbulb()),
-                    Style::default().fg(t.secondary),
-                ),
+                Span::styled(format!("{} ", icons.lightbulb()), Style::default().fg(t.secondary)),
                 Span::styled("Setup your own git repository:", t.text_style()),
             ]),
             Line::from(vec![
@@ -554,9 +529,7 @@ impl StorageSetupScreen {
             .padding(Padding::proportional(1))
             .style(t.background_style());
 
-        let help_para = Paragraph::new(help_text)
-            .block(help_block)
-            .wrap(Wrap { trim: true });
+        let help_para = Paragraph::new(help_text).block(help_block).wrap(Wrap { trim: true });
         frame.render_widget(help_para, area);
     }
 
@@ -589,10 +562,7 @@ impl StorageSetupScreen {
                     Span::raw(" read & write"),
                 ]),
                 Line::from(""),
-                Line::from(Span::styled(
-                    "Create a token:",
-                    Style::default().fg(t.primary),
-                )),
+                Line::from(Span::styled("Create a token:", Style::default().fg(t.primary))),
                 Line::from(Span::styled(
                     "  github.com/settings/tokens",
                     Style::default().fg(t.text_muted),
@@ -662,10 +632,7 @@ impl StorageSetupScreen {
                         Line::from(""),
                         Line::from("Personal Access Token for authentication."),
                         Line::from(""),
-                        Line::from(Span::styled(
-                            "Classic token (ghp_):",
-                            Style::default().fg(t.primary),
-                        )),
+                        Line::from(Span::styled("Classic token (ghp_):", Style::default().fg(t.primary))),
                         Line::from("  github.com/settings/tokens"),
                         Line::from("  Select 'repo' scope"),
                         Line::from(""),
@@ -741,10 +708,7 @@ impl StorageSetupScreen {
             Line::from(""),
             Line::from("Path to your cloned git repository."),
             Line::from(""),
-            Line::from(Span::styled(
-                "Requirements:",
-                Style::default().fg(t.primary),
-            )),
+            Line::from(Span::styled("Requirements:", Style::default().fg(t.primary))),
             Line::from("  • Valid git repository"),
             Line::from("  • Has 'origin' remote"),
             Line::from("  • Can push to remote"),
@@ -785,10 +749,7 @@ impl StorageSetupScreen {
             let (prefix, style) = if i < current_step_index {
                 ("✓ ", Style::default().fg(t.success))
             } else if i == current_step_index {
-                (
-                    "→ ",
-                    Style::default().fg(t.primary).add_modifier(Modifier::BOLD),
-                )
+                ("→ ", Style::default().fg(t.primary).add_modifier(Modifier::BOLD))
             } else {
                 ("  ", t.muted_style())
             };
@@ -802,10 +763,7 @@ impl StorageSetupScreen {
         // Add status message if any
         if let Some(ref status) = self.state.status_message {
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(
-                status.as_str(),
-                Style::default().fg(t.text),
-            )));
+            lines.push(Line::from(Span::styled(status.as_str(), Style::default().fg(t.text))));
         }
 
         let progress_block = Block::default()
@@ -817,9 +775,7 @@ impl StorageSetupScreen {
             .padding(Padding::proportional(1))
             .style(t.background_style());
 
-        let para = Paragraph::new(lines)
-            .block(progress_block)
-            .wrap(Wrap { trim: true });
+        let para = Paragraph::new(lines).block(progress_block).wrap(Wrap { trim: true });
 
         frame.render_widget(para, popup_area);
     }
@@ -843,8 +799,7 @@ impl StorageSetupScreen {
                     }
                 }
                 // Check form field click
-                if let Some(&field_idx) = self.form_field_regions.hit_test(mouse.column, mouse.row)
-                {
+                if let Some(&field_idx) = self.form_field_regions.hit_test(mouse.column, mouse.row) {
                     self.state.focus = StorageSetupFocus::Form;
                     match self.state.method {
                         StorageMethod::GitHub => {
@@ -933,11 +888,7 @@ impl StorageSetupScreen {
     }
 
     /// Handle events when form is focused
-    fn handle_form_event(
-        &mut self,
-        key: crossterm::event::KeyEvent,
-        ctx: &ScreenContext,
-    ) -> Result<ScreenAction> {
+    fn handle_form_event(&mut self, key: crossterm::event::KeyEvent, ctx: &ScreenContext) -> Result<ScreenAction> {
         use crossterm::event::{KeyCode, KeyModifiers};
 
         // For plain character keys (no modifiers), ALWAYS insert the character first
@@ -955,8 +906,7 @@ impl StorageSetupScreen {
                             false
                         } else if self.state.is_reconfiguring {
                             // Only token field in edit mode is editable
-                            self.state.github_field == GitHubField::Token
-                                && self.state.is_editing_token
+                            self.state.github_field == GitHubField::Token && self.state.is_editing_token
                         } else {
                             // All text fields editable in fresh setup
                             true
@@ -1150,8 +1100,7 @@ impl StorageSetupScreen {
 
                 // Validate token (ghp_ for classic, github_pat_ for fine-grained)
                 if !token.starts_with("ghp_") && !token.starts_with("github_pat_") {
-                    self.state.error_message =
-                        Some("Token must start with 'ghp_' or 'github_pat_'".to_string());
+                    self.state.error_message = Some("Token must start with 'ghp_' or 'github_pat_'".to_string());
                     return Ok(ScreenAction::None);
                 }
 
@@ -1159,8 +1108,7 @@ impl StorageSetupScreen {
                 return Ok(ScreenAction::UpdateGitHubToken { token });
             }
             // In reconfiguration mode but not editing token - show info
-            self.state.status_message =
-                Some("Storage already configured. Press Esc to go back.".to_string());
+            self.state.status_message = Some("Storage already configured. Press Esc to go back.".to_string());
             return Ok(ScreenAction::None);
         }
 
@@ -1171,8 +1119,7 @@ impl StorageSetupScreen {
 
                 // Validate token (ghp_ for classic, github_pat_ for fine-grained)
                 if !token.starts_with("ghp_") && !token.starts_with("github_pat_") {
-                    self.state.error_message =
-                        Some("Token must start with 'ghp_' or 'github_pat_'".to_string());
+                    self.state.error_message = Some("Token must start with 'ghp_' or 'github_pat_'".to_string());
                     return Ok(ScreenAction::None);
                 }
 
@@ -1255,10 +1202,7 @@ impl StorageSetupScreen {
                 match ctx.config.keymap.get_action(key.code, key.modifiers) {
                     Some(Action::Confirm) => {
                         if let Some((repo_path, profiles)) = self.state.pending_sha256_repo.take() {
-                            ScreenAction::SaveLocalRepoConfig {
-                                repo_path,
-                                profiles,
-                            }
+                            ScreenAction::SaveLocalRepoConfig { repo_path, profiles }
                         } else {
                             ScreenAction::Refresh
                         }
@@ -1348,10 +1292,7 @@ impl Screen for StorageSetupScreen {
                             }
                         } else {
                             // Local mode in reconfiguration
-                            format!(
-                                "{}: Back (view only)",
-                                self.key_display(ctx, Action::Cancel),
-                            )
+                            format!("{}: Back (view only)", self.key_display(ctx, Action::Cancel),)
                         }
                     } else {
                         format!(
@@ -1417,8 +1358,7 @@ impl Screen for StorageSetupScreen {
 
                 // In reconfiguration mode, only token field is editable (and only in edit mode)
                 if self.state.is_reconfiguring {
-                    return self.state.github_field == GitHubField::Token
-                        && self.state.is_editing_token;
+                    return self.state.github_field == GitHubField::Token && self.state.is_editing_token;
                 }
 
                 // In fresh setup, all text fields are editable
@@ -1458,14 +1398,12 @@ impl Screen for StorageSetupScreen {
                 // Ensure edit mode is off
                 self.state.is_editing_token = false;
                 // Pre-fill repo path
-                self.state.repo_path_input =
-                    TextInput::with_text(ctx.config.repo_path.to_string_lossy().to_string());
+                self.state.repo_path_input = TextInput::with_text(ctx.config.repo_path.to_string_lossy().to_string());
             } else {
                 // Local mode
                 self.state.method = StorageMethod::Local;
                 self.state.menu_state.select(Some(1));
-                self.state.local_path_input =
-                    TextInput::with_text(ctx.config.repo_path.to_string_lossy().to_string());
+                self.state.local_path_input = TextInput::with_text(ctx.config.repo_path.to_string_lossy().to_string());
             }
 
             self.state.error_message = None;

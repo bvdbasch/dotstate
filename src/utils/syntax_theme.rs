@@ -53,11 +53,7 @@ pub fn get_syntax_theme(theme_set: &ThemeSet, theme_type: ThemeType) -> &Theme {
         }
     }
 
-    theme_set
-        .themes
-        .values()
-        .next()
-        .expect("No syntect themes available")
+    theme_set.themes.values().next().expect("No syntect themes available")
 }
 
 /// Get the syntax theme using the current global UI theme.
@@ -88,10 +84,7 @@ mod tests {
         let theme_set = ThemeSet::load_defaults();
         let theme = get_syntax_theme(&theme_set, ThemeType::Dark);
         // Should not panic and return a valid theme
-        assert!(!theme
-            .name
-            .as_ref()
-            .is_none_or(std::string::String::is_empty));
+        assert!(!theme.name.as_ref().is_none_or(std::string::String::is_empty));
     }
 
     #[test]
@@ -99,10 +92,7 @@ mod tests {
         let theme_set = ThemeSet::load_defaults();
         let theme = get_syntax_theme(&theme_set, ThemeType::Light);
         // Should not panic and return a valid theme
-        assert!(!theme
-            .name
-            .as_ref()
-            .is_none_or(std::string::String::is_empty));
+        assert!(!theme.name.as_ref().is_none_or(std::string::String::is_empty));
     }
 
     #[test]
@@ -110,10 +100,7 @@ mod tests {
         let theme_set = ThemeSet::load_defaults();
         let theme = get_syntax_theme(&theme_set, ThemeType::NoColor);
         // NoColor should fall back to dark theme preferences
-        assert!(!theme
-            .name
-            .as_ref()
-            .is_none_or(std::string::String::is_empty));
+        assert!(!theme.name.as_ref().is_none_or(std::string::String::is_empty));
     }
 
     #[test]
@@ -121,15 +108,9 @@ mod tests {
         let theme_set = ThemeSet::load_defaults();
 
         let theme_dark = get_syntax_theme(&theme_set, ThemeType::SolarizedDark);
-        assert!(!theme_dark
-            .name
-            .as_ref()
-            .is_none_or(std::string::String::is_empty));
+        assert!(!theme_dark.name.as_ref().is_none_or(std::string::String::is_empty));
 
         let theme_light = get_syntax_theme(&theme_set, ThemeType::SolarizedLight);
-        assert!(!theme_light
-            .name
-            .as_ref()
-            .is_none_or(std::string::String::is_empty));
+        assert!(!theme_light.name.as_ref().is_none_or(std::string::String::is_empty));
     }
 }

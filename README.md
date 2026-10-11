@@ -255,6 +255,8 @@ Then add `fpath=(~/.zsh/completions $fpath)` to your .zshrc before your framewor
 
 Choose **Manage Templates** from the main menu to register committed template
 sources, choose an engine, and render them to a destination on your machine.
+You enter only a **name** (no extension) and a **home-relative destination** —
+DotState derives where the source template lives and which extension it uses.
 The screen supports add, edit, remove, render selected, render all, and checking
 whether destination files exist. Controls follow your keymap and also support
 mouse clicks and scrolling. Rendering runs in the background so the TUI stays
@@ -269,17 +271,31 @@ synced_files = []
 packages = []
 
 [[profiles.templates]]
-name = "git config"
-source = "templates/git/config.tpl"
-destination = "~/.config/git/config"
+name = "config"
+destination = ".config/git/config"
 engine = "op-inject"
 ```
 
-The source is relative to the repository root. `op-inject` invokes the external
-1Password CLI (`op inject`); `custom` runs a `render_command` using `sh -c`, with
-`{source}` and `{destination}` placeholders. Templates inherit from parent
-profiles, with child definitions overriding the same destination. Inherited
-entries are labelled in the TUI; edit their parent or add a child override.
+The **source file is not stored in the manifest — it is derived**, mirroring how
+synced files work. A file you sync to `~/.config/git/config` lives in the repo at
+`<profile>/.config/git/config`; likewise a template whose destination is
+`.config/git/config` has its source at
+`templates/<profile>/.config/git/config.<ext>`. So the `templates/` directory is
+the exact analog of a profile folder, with the same home-relative subtree inside
+it, plus a `templates/common/` pool for templates shared across every profile.
+
+The **extension is chosen by the engine**, not the user: `op-inject` sources use
+`.tpl`. Only the `custom` engine lets you set the extension (e.g. `.j2`) and a
+`render_command` (run via `sh -c`, with `{source}` and `{destination}`
+placeholders) — the same way package fields stay hidden until you pick the
+`custom` manager. `op-inject` invokes the external 1Password CLI (`op inject`).
+
+Templates inherit from parent profiles and merge the `common` pool (lowest
+priority), with child definitions overriding by destination. The TUI filters to
+the active profile's resolved view and labels inherited/common entries; to change
+one, edit its owning profile or add an override with the same destination in the
+active profile. Adding a template creates an empty source stub at the derived
+path for you to author.
 
 Rendered outputs are regular files, never automatically symlinked or registered
 for Git sync. Removing an entry retains both the source and output files.
