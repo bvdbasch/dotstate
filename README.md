@@ -257,10 +257,25 @@ Choose **Manage Templates** from the main menu to register committed template
 sources, choose an engine, and render them to a destination on your machine.
 You enter only a **name** (no extension) and a **home-relative destination** —
 DotState derives where the source template lives and which extension it uses.
-The screen supports add, edit, remove, render selected, render all, and checking
-whether destination files exist. Controls follow your keymap and also support
-mouse clicks and scrolling. Rendering runs in the background so the TUI stays
-responsive.
+The screen supports add, import-from-file, edit, remove, render selected, render
+all, and checking whether destination files exist. Controls follow your keymap
+and also support mouse clicks and scrolling. Rendering runs in the background so
+the TUI stays responsive.
+
+There are two ways to add a template:
+
+- **Author it in place.** Create the source yourself under
+  `templates/<profile>/<destination>.<ext>` (or `templates/common/...`), or use
+  **Add** to record the definition and get an empty source stub to edit. This
+  suits repos that already carry hand-written or externally-managed templates.
+- **Convert an existing file.** Use **From file** to open the same file browser
+  as *Manage Files*, pick a flat file already on disk, and DotState pre-fills the
+  name and destination for you. Choose an engine and save: the file is **moved**
+  into `templates/<profile>/<destination>.<ext>` with the engine's extension
+  appended, contents preserved exactly. This is handy when a plain config file
+  suddenly needs secrets injected (e.g. a new tool at work) — convert it to a
+  template, then add your `op://` references.
+
 
 Templates live alongside files and packages in `.dotstate-profiles.toml`:
 

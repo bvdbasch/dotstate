@@ -16,7 +16,7 @@ use crate::utils::path::expand_path;
 use crate::utils::profile_manifest::{ResolvedTemplate, Template, TemplateEngine};
 use crate::utils::template_engine::TemplateEngineImpl;
 use crate::utils::ProfileManifest;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -103,6 +103,57 @@ impl TemplateService {
         std::fs::write(&path, "")?;
         info!("Created template source stub: {}", path.display());
         Ok(true)
+    }
+
+    /// Import an existing on-disk file as this template's source, moving it into
+    /// the profile's template subtree with the engine's extension appended. The
+    /// file contents are preserved exactly (no templating applied).
+    ///
+    /// The original file is removed after a successful copy, mirroring how
+    /// syncing a file relocates it into the repo. The rendered destination is
+    /// NOT created here — rendering stays an explicit, separate step.
+    ///
+    /// # Errors
+    /// - If the source file does not exist or is not a regular file.
+    /// - If a source template already exists at the derived path.
+    pub fn import_source_file(
+        repo_path: &Path,
+        source_profile: &str,
+        template: &Template,
+        from_file: &Path,
+    ) -> Result<()> {
+        if !from_file.is_file() {
+            return Err(anyhow::anyhow!(
+                "Cannot import '{}': not a regular file",
+                from_file.display()
+            ));
+        }
+        let dest = Self::source_abs_path(repo_path, source_profile, template);
+        if dest.exists() {
+            return Err(anyhow::anyhow!(
+                "A template source already exists at {}",
+                dest.display()
+            ));
+        }
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // Copy first (non-destructive), then remove the original.
+        std::fs::copy(from_file, &dest)
+            .with_context(|| format!("Failed to copy {} to {}", from_file.display(), dest.display()))?;
+        if let Err(e) = std::fs::remove_file(from_file) {
+            warn!(
+                "Imported template source copied to {}, but failed to remove original {}: {e}",
+                dest.display(),
+                from_file.display()
+            );
+        }
+        info!(
+            "Imported '{}' as template source {}",
+            from_file.display(),
+            dest.display()
+        );
+        Ok(())
     }
 
     /// Update an owned template by its index in the profile (not the resolved list).
@@ -487,5 +538,36 @@ mod tests {
             description: None,
         };
         assert_eq!(TemplateService::check_template(&t).status, TemplateStatus::Missing);
+    }
+
+    #[test]
+    fn test_import_source_file_moves_and_preserves_contents() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+        // An on-disk file to convert into a template source.
+        let src = repo.join("on-disk.conf");
+        std::fs::write(&src, "key = value\n").unwrap();
+
+        let tpl = TemplateService::create_template(params("gitwork", TemplateEngine::OpInject, "", ""));
+        TemplateService::import_source_file(repo, "personal", &tpl, &src).unwrap();
+
+        // Original is gone; source lives under the profile subtree with .tpl ext.
+        assert!(!src.exists(), "original file should be moved");
+        let dest = repo.join("templates/personal/.config/git/config.tpl");
+        assert_eq!(std::fs::read_to_string(&dest).unwrap(), "key = value\n");
+    }
+
+    #[test]
+    fn test_import_source_file_rejects_existing_source() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+        let src = repo.join("on-disk.conf");
+        std::fs::write(&src, "data\n").unwrap();
+        let tpl = TemplateService::create_template(params("gitwork", TemplateEngine::OpInject, "", ""));
+        // Pre-create the derived source so the import collides.
+        TemplateService::ensure_source_stub(repo, "personal", &tpl).unwrap();
+        assert!(TemplateService::import_source_file(repo, "personal", &tpl, &src).is_err());
+        // Original must be left intact on failure.
+        assert!(src.exists());
     }
 }

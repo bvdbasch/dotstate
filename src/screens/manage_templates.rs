@@ -8,7 +8,7 @@
 //! for built-in engines and only configurable for the `custom` engine, the same
 //! way package fields stay hidden until the `custom` manager is chosen.
 
-use crate::components::{footer::Footer, header::Header};
+use crate::components::{footer::Footer, header::Header, FileBrowser, FileBrowserResult};
 use crate::keymap::Action;
 use crate::screens::{RenderContext, Screen, ScreenAction, ScreenContext};
 use crate::services::{TemplateCreationParams, TemplateService, TemplateStatus};
@@ -21,6 +21,7 @@ use anyhow::{bail, Result};
 use crossterm::event::{Event, KeyEventKind, MouseButton, MouseEventKind};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap};
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 /// Logical form fields. The engine row is a toggle; `Extension`/`Command` only
@@ -45,6 +46,9 @@ struct Form {
     /// Index into `visible_fields()`.
     focus: usize,
     editing: Option<usize>,
+    /// When set, an existing on-disk file to move into the template subtree on
+    /// save (converting a flat file into a template without altering contents).
+    import_file: Option<PathBuf>,
 }
 
 impl Form {
@@ -58,7 +62,26 @@ impl Form {
             engine: template.map_or(TemplateEngine::OpInject, |t| t.engine.clone()),
             focus: 0,
             editing: None,
+            import_file: None,
         }
+    }
+
+    /// Build a new Add form pre-filled from a file chosen in the file browser.
+    /// `relative_path` is home-relative (e.g. ".config/git/config"); `full_path`
+    /// is the absolute on-disk location to move on save.
+    fn from_file(full_path: PathBuf, relative_path: &str) -> Self {
+        let mut form = Self::new(None);
+        let dest = relative_path.trim_start_matches('/');
+        form.destination.set_text(dest);
+        // Derive a sensible name from the file stem (no extension).
+        let name = std::path::Path::new(dest)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("template")
+            .to_string();
+        form.name.set_text(name);
+        form.import_file = Some(full_path);
+        form
     }
 
     fn is_custom(&self) -> bool {
@@ -138,6 +161,8 @@ pub struct ManageTemplatesScreen {
     deleting: bool,
     message: String,
     worker: Option<Receiver<String>>,
+    /// File browser for importing an existing on-disk file as a template source.
+    file_browser: FileBrowser,
     list_area: Rect,
     /// Rendered input field rects mapped to their logical field.
     field_areas: Vec<(Rect, Field)>,
@@ -226,8 +251,22 @@ impl ManageTemplatesScreen {
             bail!("An owned template already uses that name or destination");
         }
 
-        let created = TemplateService::ensure_source_stub(ctx.repo_path, &self.profile, &template)?;
+        let import_file = form.import_file.clone();
         let source_rel = template.source_relative_path(&self.profile);
+
+        // Materialize the source: either move an imported on-disk file in
+        // (preserving contents), or create an empty stub to author.
+        let message = if let Some(from) = import_file {
+            TemplateService::import_source_file(ctx.repo_path, &self.profile, &template, &from)?;
+            format!("Template saved; moved {} → {source_rel}", from.display())
+        } else {
+            let created = TemplateService::ensure_source_stub(ctx.repo_path, &self.profile, &template)?;
+            if created {
+                format!("Template saved; created source stub {source_rel}")
+            } else {
+                format!("Template saved; source {source_rel}")
+            }
+        };
 
         if let Some(index) = editing {
             TemplateService::update_template(ctx.repo_path, &self.profile, index, template)?;
@@ -235,11 +274,7 @@ impl ManageTemplatesScreen {
             TemplateService::add_template(ctx.repo_path, &self.profile, template)?;
         }
         self.form = None;
-        self.message = if created {
-            format!("Template saved; created source stub {source_rel}")
-        } else {
-            format!("Template saved; source {source_rel}")
-        };
+        self.message = message;
         self.reload(ctx)
     }
 
@@ -393,6 +428,11 @@ impl ManageTemplatesScreen {
             }
             Action::Install | Action::Confirm if self.worker.is_none() => self.start_render(ctx, false),
             Action::SelectAll if self.worker.is_none() => self.start_render(ctx, true),
+            Action::Import if self.worker.is_none() => {
+                // Open the file browser to convert an existing on-disk file into
+                // a template source.
+                self.file_browser.open(crate::utils::get_home_dir());
+            }
             _ => {}
         }
         Ok(ScreenAction::None)
@@ -441,11 +481,12 @@ impl Screen for ManageTemplatesScreen {
     fn on_enter(&mut self, ctx: &ScreenContext) -> Result<()> {
         self.form = None;
         self.deleting = false;
+        self.file_browser.close();
         self.reload(ctx)
     }
 
     fn is_input_focused(&self) -> bool {
-        self.form.is_some() || self.deleting
+        self.form.is_some() || self.deleting || self.file_browser.is_input_focused()
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect, ctx: &RenderContext) -> Result<()> {
@@ -529,6 +570,7 @@ impl Screen for ManageTemplatesScreen {
             rows[1],
             &[
                 (Action::Create, "Add"),
+                (Action::Import, "From file"),
                 (Action::Edit, "Edit"),
                 (Action::Delete, "Remove"),
                 (Action::Install, "Render"),
@@ -657,10 +699,36 @@ impl Screen for ManageTemplatesScreen {
                 ctx.config,
             );
         }
+
+        // File browser overlays everything when importing an on-disk file.
+        if self.file_browser.is_open() {
+            self.file_browser
+                .render(frame, area, ctx.config, ctx.syntax_set, ctx.syntax_theme)?;
+        }
         Ok(())
     }
 
     fn handle_event(&mut self, event: Event, ctx: &ScreenContext) -> Result<ScreenAction> {
+        // File browser (import flow) takes precedence while open.
+        if self.file_browser.is_open() {
+            match self.file_browser.handle_event(event, ctx.config)? {
+                FileBrowserResult::None | FileBrowserResult::RefreshNeeded => return Ok(ScreenAction::None),
+                FileBrowserResult::Cancelled => {
+                    self.message = "Import cancelled".to_string();
+                    return Ok(ScreenAction::None);
+                }
+                FileBrowserResult::Selected {
+                    full_path,
+                    relative_path,
+                } => {
+                    // Pre-fill an Add form from the chosen file; the user picks
+                    // the engine, and the file is moved in on save.
+                    self.form = Some(Form::from_file(full_path, &relative_path));
+                    self.message = "Pick an engine, then Save to convert this file into a template".to_string();
+                    return Ok(ScreenAction::None);
+                }
+            }
+        }
         match event {
             Event::Key(key) if key.kind == KeyEventKind::Press => {
                 let action = ctx.config.keymap.get_action(key.code, key.modifiers);
@@ -930,5 +998,42 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&dest).unwrap(), "private fixture\n");
         assert!(!std::fs::symlink_metadata(&dest).unwrap().file_type().is_symlink());
         draw(&mut screen, &config, 80, 24);
+    }
+
+    #[test]
+    fn importing_a_file_prefills_the_form_and_moves_it_into_the_profile_subtree() {
+        let (dir, config) = setup();
+        let config_path = dir.path().join("config.toml");
+        let ctx = ScreenContext::new(&config, &config_path);
+        let mut screen = ManageTemplatesScreen::new();
+        screen.on_enter(&ctx).unwrap();
+
+        // Simulate the file-browser selection step directly: pre-fill a form
+        // from an existing on-disk file with a home-relative destination.
+        let on_disk = dir.path().join("flat.conf");
+        std::fs::write(&on_disk, "secret = REPLACE_ME\n").unwrap();
+        screen.form = Some(Form::from_file(on_disk.clone(), ".config/newtool/config"));
+
+        // Name is derived from the file stem, destination carried over.
+        let form = screen.form.as_ref().unwrap();
+        assert_eq!(form.name.text(), "config");
+        assert_eq!(form.destination.text(), ".config/newtool/config");
+        assert!(form.import_file.is_some());
+
+        // Keep the default op-inject engine and save.
+        screen.action(Action::Save, &ctx).unwrap();
+        assert!(screen.form.is_none());
+
+        // The on-disk file was moved into the child profile's template subtree
+        // with the engine extension, contents preserved; original is gone.
+        assert!(!on_disk.exists(), "original flat file should be moved");
+        let moved = dir.path().join("templates/child/.config/newtool/config.tpl");
+        assert_eq!(std::fs::read_to_string(&moved).unwrap(), "secret = REPLACE_ME\n");
+
+        // The manifest records the template for the active profile.
+        let manifest = ProfileManifest::load(dir.path()).unwrap();
+        let child = manifest.profiles.iter().find(|p| p.name == "child").unwrap();
+        assert_eq!(child.templates.len(), 1);
+        assert_eq!(child.templates[0].destination, ".config/newtool/config");
     }
 }
