@@ -1377,7 +1377,7 @@ impl Screen for ManageProfilesScreen {
                                                         self.state.create_name_input.move_left();
                                                     }
                                                     CreateField::Description => {
-                                                        self.state.create_description_input.move_left()
+                                                        self.state.create_description_input.move_left();
                                                     }
                                                     _ => {}
                                                 }
@@ -1389,7 +1389,7 @@ impl Screen for ManageProfilesScreen {
                                                         self.state.create_name_input.move_right();
                                                     }
                                                     CreateField::Description => {
-                                                        self.state.create_description_input.move_right()
+                                                        self.state.create_description_input.move_right();
                                                     }
                                                     _ => {}
                                                 }
@@ -1401,7 +1401,7 @@ impl Screen for ManageProfilesScreen {
                                                         self.state.create_name_input.move_home();
                                                     }
                                                     CreateField::Description => {
-                                                        self.state.create_description_input.move_home()
+                                                        self.state.create_description_input.move_home();
                                                     }
                                                     _ => {}
                                                 }
@@ -1413,7 +1413,7 @@ impl Screen for ManageProfilesScreen {
                                                         self.state.create_name_input.move_end();
                                                     }
                                                     CreateField::Description => {
-                                                        self.state.create_description_input.move_end()
+                                                        self.state.create_description_input.move_end();
                                                     }
                                                     _ => {}
                                                 }
@@ -1425,7 +1425,7 @@ impl Screen for ManageProfilesScreen {
                                                         self.state.create_name_input.backspace();
                                                     }
                                                     CreateField::Description => {
-                                                        self.state.create_description_input.backspace()
+                                                        self.state.create_description_input.backspace();
                                                     }
                                                     _ => {}
                                                 }

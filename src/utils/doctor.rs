@@ -1237,7 +1237,7 @@ impl Doctor {
                 SymlinkHealth::Ok => {}
                 SymlinkHealth::Missing => broken.push(tracked.target.display().to_string()),
                 SymlinkHealth::NotASymlink => {
-                    invalid.push(format!("{} exists but is not a symlink", tracked.target.display()))
+                    invalid.push(format!("{} exists but is not a symlink", tracked.target.display()));
                 }
                 SymlinkHealth::WrongTarget(link_target) => invalid.push(format!(
                     "{} -> {} (expected {})",

@@ -262,6 +262,19 @@ all, and checking whether destination files exist. Controls follow your keymap
 and also support mouse clicks and scrolling. Rendering runs in the background so
 the TUI stays responsive.
 
+The Templates screen scans the entire `templates/` tree on entry and refresh.
+Files not yet registered in the manifest appear as **untracked** rows, including
+files in other profiles and files directly under `templates/`. Select a row and
+press the displayed confirmation key, or double-click it, to review the inferred
+name, destination, engine, and owning profile. Save registers it; cancel leaves
+both the source and manifest unchanged. `.tpl` suggests `op-inject`; other
+extensions require the custom engine's missing details to be filled in.
+
+A recognised profile directory (or `common`) determines ownership. Otherwise
+the active profile owns the entry, and Save relocates the source into its
+canonical `templates/<profile>/...` path without changing its contents. Already
+registered sources from other profiles are not shown as untracked.
+
 There are two ways to add a template:
 
 - **Author it in place.** Create the source yourself under

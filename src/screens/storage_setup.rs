@@ -1292,7 +1292,7 @@ impl Screen for StorageSetupScreen {
                             }
                         } else {
                             // Local mode in reconfiguration
-                            format!("{}: Back (view only)", self.key_display(ctx, Action::Cancel),)
+                            format!("{}: Back (view only)", self.key_display(ctx, Action::Cancel))
                         }
                     } else {
                         format!(

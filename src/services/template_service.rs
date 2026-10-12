@@ -79,10 +79,244 @@ pub struct TemplateCreationParams<'a> {
     pub description: &'a str,
 }
 
+/// A source file found under `templates/` that has no matching manifest entry.
+///
+/// Discovery reverses the on-disk layout `templates/<profile>/<rel>.<ext>` back
+/// into the fields needed to pre-fill the Add form. A file placed directly in
+/// `templates/<rel>.<ext>` (no profile segment) is attributed to the active
+/// profile, mirroring how file discovery assigns ambiguous files.
+#[derive(Debug, Clone)]
+pub struct DiscoveredTemplate {
+    /// Source path relative to the repo root (e.g. `templates/common/.config/git/work.tpl`).
+    pub source_relative: String,
+    /// Owning profile the entry will be created under once adopted.
+    pub source_profile: String,
+    /// Derived template name (file stem, no extension).
+    pub name: String,
+    /// Derived home-relative destination (e.g. `.config/git/work`).
+    pub destination: String,
+    /// The file's extension without the leading dot (empty if none).
+    pub extension: String,
+    /// Engine inferred from the extension (`tpl` -> op-inject; otherwise custom).
+    pub inferred_engine: TemplateEngine,
+}
+
 /// Service for template-related operations.
 pub struct TemplateService;
 
 impl TemplateService {
+    /// Register a discovered source under its owning profile or common section.
+    /// Relocate it only if its canonical source path differs; roll back the move
+    /// if persisting the manifest fails.
+    pub fn adopt_template(
+        repo_path: &Path,
+        source_relative: &str,
+        source_profile: &str,
+        template: Template,
+    ) -> Result<()> {
+        use std::path::Component;
+        let validation = Self::validate_template(&TemplateCreationParams {
+            name: &template.name,
+            destination: &template.destination,
+            engine: template.engine.clone(),
+            extension: template.extension.as_deref().unwrap_or(""),
+            render_command: template.render_command.as_deref().unwrap_or(""),
+            description: template.description.as_deref().unwrap_or(""),
+        });
+        anyhow::ensure!(validation.is_valid, "{}", validation.error_message.unwrap_or_default());
+        let is_relative =
+            |path: &str| !path.is_empty() && Path::new(path).components().all(|c| matches!(c, Component::Normal(_)));
+        anyhow::ensure!(
+            is_relative(&template.destination),
+            "Destination must be home-relative without '..'"
+        );
+        anyhow::ensure!(
+            is_relative(source_relative) && Path::new(source_relative).starts_with("templates"),
+            "Source must be inside templates/"
+        );
+        let extension = template.source_extension();
+        anyhow::ensure!(
+            !extension.contains(['/', '\\']) && extension != "..",
+            "Invalid source extension"
+        );
+
+        let mut manifest = ProfileManifest::load_or_backfill(repo_path)?;
+        let entries = if source_profile == "common" {
+            &mut manifest.common.templates
+        } else {
+            &mut manifest
+                .profiles
+                .iter_mut()
+                .find(|p| p.name == source_profile)
+                .ok_or_else(|| anyhow::anyhow!("Profile '{source_profile}' not found"))?
+                .templates
+        };
+        anyhow::ensure!(
+            !entries
+                .iter()
+                .any(|t| t.name == template.name || t.destination == template.destination),
+            "A template already uses that name or destination in '{source_profile}'"
+        );
+        let from = repo_path.join(source_relative);
+        let to = Self::source_abs_path(repo_path, source_profile, &template);
+        anyhow::ensure!(
+            std::fs::symlink_metadata(&from)?.file_type().is_file(),
+            "Source must be a regular file"
+        );
+        let root = repo_path.join("templates").canonicalize()?;
+        anyhow::ensure!(from.canonicalize()?.starts_with(&root), "Source escapes templates/");
+        let moved = from != to;
+        if moved {
+            anyhow::ensure!(
+                std::fs::symlink_metadata(&to).is_err(),
+                "A template source already exists at {}",
+                to.display()
+            );
+            let parent = to.parent().ok_or_else(|| anyhow::anyhow!("Invalid source path"))?;
+            std::fs::create_dir_all(parent)?;
+            anyhow::ensure!(
+                parent.canonicalize()?.starts_with(&root),
+                "Destination source escapes templates/"
+            );
+            std::fs::rename(&from, &to)?;
+        }
+        entries.push(template);
+        if let Err(error) = manifest.save(repo_path) {
+            if moved {
+                std::fs::rename(&to, &from)
+                    .with_context(|| format!("Manifest save failed ({error}); source rollback failed"))?;
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Discover source files under `templates/` that are not yet recorded in the
+    /// manifest for the active profile's resolved view.
+    ///
+    /// Scans the entire `templates/` tree. Each file maps to a profile segment
+    /// (`templates/<profile>/...`) or, when placed directly under `templates/`,
+    /// is attributed to `active_profile`. A file is "tracked" if some template
+    /// in the manifest derives the same source path; everything else is
+    /// returned as a `DiscoveredTemplate`, sorted by source path.
+    pub fn discover_untracked_templates(repo_path: &Path, active_profile: &str) -> Result<Vec<DiscoveredTemplate>> {
+        let templates_root = repo_path.join("templates");
+        if !templates_root.is_dir() {
+            return Ok(Vec::new());
+        }
+
+        // Collect every source path already derivable from the manifest so we
+        // can exclude tracked files regardless of which profile owns them.
+        let manifest = ProfileManifest::load_or_backfill(repo_path)?;
+        let mut tracked: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for profile in &manifest.profiles {
+            for tpl in &profile.templates {
+                tracked.insert(tpl.source_relative_path(&profile.name));
+            }
+        }
+        for tpl in &manifest.common.templates {
+            tracked.insert(tpl.source_relative_path("common"));
+        }
+
+        let mut files: Vec<String> = Vec::new();
+        Self::collect_files_recursive(&templates_root, &templates_root, &mut files)?;
+
+        let mut discovered = Vec::new();
+        for rel_under_templates in files {
+            // `rel_under_templates` is relative to the `templates/` dir.
+            let source_relative = format!("templates/{rel_under_templates}");
+            if tracked.contains(&source_relative) {
+                continue;
+            }
+
+            // Determine owning profile + the remaining path.
+            // `<profile>/<rest>` — if the first segment is a known profile or
+            // "common", use it; otherwise the file sits at the templates root
+            // (or under an unknown folder) and is attributed to the active
+            // profile with its full relative path as the destination base.
+            let (owning_profile, rest) = Self::split_profile_segment(&rel_under_templates, &manifest, active_profile);
+
+            let (destination, extension) = Self::split_destination_extension(&rest);
+            if destination.is_empty() {
+                continue;
+            }
+
+            let inferred_engine = if extension == "tpl" {
+                TemplateEngine::OpInject
+            } else {
+                TemplateEngine::Custom
+            };
+
+            let name = std::path::Path::new(&destination)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("template")
+                .trim_start_matches('.')
+                .to_string();
+
+            discovered.push(DiscoveredTemplate {
+                source_relative,
+                source_profile: owning_profile,
+                name,
+                destination,
+                extension,
+                inferred_engine,
+            });
+        }
+
+        discovered.sort_by(|a, b| a.source_relative.cmp(&b.source_relative));
+        Ok(discovered)
+    }
+
+    /// Split a `templates/`-relative path into `(owning_profile, rest_path)`.
+    ///
+    /// If the first path segment names an existing profile or is `common`, that
+    /// segment owns the file. Otherwise the file is attributed to the active
+    /// profile and the entire path is treated as the destination base.
+    fn split_profile_segment(rel: &str, manifest: &ProfileManifest, active_profile: &str) -> (String, String) {
+        let mut parts = rel.splitn(2, '/');
+        let first = parts.next().unwrap_or("");
+        let remainder = parts.next();
+
+        let is_profile = first == "common" || manifest.profiles.iter().any(|p| p.name == first);
+        match (is_profile, remainder) {
+            (true, Some(rest)) if !rest.is_empty() => (first.to_string(), rest.to_string()),
+            // Not a profile segment: attribute to active profile, keep full path.
+            _ => (active_profile.to_string(), rel.to_string()),
+        }
+    }
+
+    /// Split a relative source path (no `templates/<profile>/` prefix) into a
+    /// home-relative `(destination, extension)` by stripping the final suffix.
+    fn split_destination_extension(rest: &str) -> (String, String) {
+        let path = std::path::Path::new(rest);
+        match path.extension().and_then(|e| e.to_str()) {
+            Some(ext) if !ext.is_empty() => {
+                let without_ext = rest.strip_suffix(&format!(".{ext}")).unwrap_or(rest).to_string();
+                (without_ext, ext.to_string())
+            }
+            _ => (rest.to_string(), String::new()),
+        }
+    }
+
+    /// Recursively collect files under `dir`, returning paths relative to `base`.
+    fn collect_files_recursive(base: &Path, dir: &Path, out: &mut Vec<String>) -> Result<()> {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let kind = entry.file_type()?;
+            // Do not follow symlinks: directory links may loop or leave the repo.
+            if kind.is_dir() {
+                Self::collect_files_recursive(base, &path, out)?;
+            } else if kind.is_file() {
+                if let Ok(rel) = path.strip_prefix(base) {
+                    out.push(rel.to_string_lossy().replace('\\', "/"));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Absolute path to a template's source file in the repo, given the profile
     /// that owns it (`templates/<source_profile>/<destination>.<ext>`).
     #[must_use]
@@ -569,5 +803,126 @@ mod tests {
         assert!(TemplateService::import_source_file(repo, "personal", &tpl, &src).is_err());
         // Original must be left intact on failure.
         assert!(src.exists());
+    }
+
+    fn write_src(repo: &Path, rel: &str, contents: &str) {
+        let path = repo.join(rel);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, contents).unwrap();
+    }
+
+    #[test]
+    fn test_discover_untracked_templates_maps_profiles_and_infers_engine() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+
+        let mut manifest = ProfileManifest::default();
+        manifest.add_profile("personal".to_string(), None);
+        manifest.save(repo).unwrap();
+
+        // Hand-authored sources:
+        //  - under a known profile folder (op-inject via .tpl)
+        write_src(repo, "templates/personal/.config/git/work.tpl", "{{ op://v/i/f }}");
+        //  - under common with a custom extension (.j2 -> custom)
+        write_src(repo, "templates/common/.config/app/conf.j2", "{{ x }}");
+        //  - directly at templates root, no profile segment -> active profile
+        write_src(repo, "templates/.config/root.tpl", "root");
+
+        let found = TemplateService::discover_untracked_templates(repo, "personal").unwrap();
+        assert_eq!(found.len(), 3);
+
+        let work = found.iter().find(|d| d.source_relative.ends_with("work.tpl")).unwrap();
+        assert_eq!(work.source_profile, "personal");
+        assert_eq!(work.destination, ".config/git/work");
+        assert_eq!(work.extension, "tpl");
+        assert_eq!(work.inferred_engine, TemplateEngine::OpInject);
+        assert_eq!(work.name, "work");
+
+        let conf = found.iter().find(|d| d.source_relative.ends_with("conf.j2")).unwrap();
+        assert_eq!(conf.source_profile, "common");
+        assert_eq!(conf.destination, ".config/app/conf");
+        assert_eq!(conf.extension, "j2");
+        assert_eq!(conf.inferred_engine, TemplateEngine::Custom);
+
+        // Root-level file with no profile segment is attributed to the active profile.
+        let root = found
+            .iter()
+            .find(|d| d.source_relative == "templates/.config/root.tpl")
+            .unwrap();
+        assert_eq!(root.source_profile, "personal");
+        assert_eq!(root.destination, ".config/root");
+    }
+
+    #[test]
+    fn test_discover_excludes_tracked_sources() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+
+        let mut manifest = ProfileManifest::default();
+        manifest.add_profile("personal".to_string(), None);
+        manifest.save(repo).unwrap();
+
+        // Register one template via the service (writes manifest + stub).
+        let tpl = TemplateService::create_template(params("work", TemplateEngine::OpInject, "", ""));
+        // params() uses destination ".config/git/config"
+        TemplateService::ensure_source_stub(repo, "personal", &tpl).unwrap();
+        TemplateService::add_template(repo, "personal", tpl).unwrap();
+
+        // Also drop an untracked one.
+        write_src(repo, "templates/personal/.config/other.tpl", "x");
+
+        let found = TemplateService::discover_untracked_templates(repo, "personal").unwrap();
+        // Only the untracked file is reported.
+        assert_eq!(found.len(), 1);
+        assert!(found[0].source_relative.ends_with(".config/other.tpl"));
+    }
+
+    #[test]
+    fn test_discover_empty_when_no_templates_dir() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let found = TemplateService::discover_untracked_templates(dir.path(), "personal").unwrap();
+        assert!(found.is_empty());
+    }
+
+    #[test]
+    fn adoption_rejects_collisions_and_invalid_owner_without_moving_source() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+        let mut manifest = ProfileManifest::default();
+        manifest.add_profile("personal".to_string(), None);
+        manifest.save(repo).unwrap();
+        write_src(repo, "templates/input.tpl", "original\n");
+        let tpl = TemplateService::create_template(params("config", TemplateEngine::OpInject, "", ""));
+        assert!(TemplateService::adopt_template(repo, "templates/input.tpl", "missing", tpl.clone()).is_err());
+        write_src(repo, "templates/personal/.config/git/config.tpl", "keep\n");
+        assert!(TemplateService::adopt_template(repo, "templates/input.tpl", "personal", tpl).is_err());
+        assert_eq!(
+            std::fs::read_to_string(repo.join("templates/input.tpl")).unwrap(),
+            "original\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(repo.join("templates/personal/.config/git/config.tpl")).unwrap(),
+            "keep\n"
+        );
+    }
+
+    #[test]
+    fn adoption_rolls_back_relocation_when_manifest_save_fails() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let repo = dir.path();
+        let mut manifest = ProfileManifest::default();
+        manifest.add_profile("personal".to_string(), None);
+        manifest.save(repo).unwrap();
+        write_src(repo, "templates/input.tpl", "original\n");
+        // The atomic-save temporary path is blocked; load still succeeds.
+        std::fs::create_dir(repo.join(".dotstate-profiles.toml.tmp")).unwrap();
+        let tpl = TemplateService::create_template(params("config", TemplateEngine::OpInject, "", ""));
+        assert!(TemplateService::adopt_template(repo, "templates/input.tpl", "personal", tpl).is_err());
+        assert_eq!(
+            std::fs::read_to_string(repo.join("templates/input.tpl")).unwrap(),
+            "original\n"
+        );
+        assert!(!repo.join("templates/personal/.config/git/config.tpl").exists());
+        assert_eq!(ProfileManifest::load(repo).unwrap().profiles[0].templates.len(), 0);
     }
 }

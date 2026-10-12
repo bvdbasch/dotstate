@@ -11,7 +11,7 @@
 use crate::components::{footer::Footer, header::Header, FileBrowser, FileBrowserResult};
 use crate::keymap::Action;
 use crate::screens::{RenderContext, Screen, ScreenAction, ScreenContext};
-use crate::services::{TemplateCreationParams, TemplateService, TemplateStatus};
+use crate::services::{DiscoveredTemplate, TemplateCreationParams, TemplateService, TemplateStatus};
 use crate::styles::theme;
 use crate::ui::Screen as ScreenId;
 use crate::utils::profile_manifest::{ResolvedTemplate, Template, TemplateEngine};
@@ -49,6 +49,11 @@ struct Form {
     /// When set, an existing on-disk file to move into the template subtree on
     /// save (converting a flat file into a template without altering contents).
     import_file: Option<PathBuf>,
+    /// When adopting a discovered source, its current repo-relative path. On
+    /// save it is relocated to the canonical derived path if they differ.
+    adopt_source: Option<String>,
+    /// Preserve ownership inferred from a discovered source's path.
+    adopt_profile: Option<String>,
 }
 
 impl Form {
@@ -63,6 +68,8 @@ impl Form {
             focus: 0,
             editing: None,
             import_file: None,
+            adopt_source: None,
+            adopt_profile: None,
         }
     }
 
@@ -81,6 +88,24 @@ impl Form {
             .to_string();
         form.name.set_text(name);
         form.import_file = Some(full_path);
+        form
+    }
+
+    /// Build an Add form pre-filled from a discovered (untracked) source file.
+    /// The source already exists on disk, so no stub/import is needed on save —
+    /// the user just confirms engine/command and the manifest entry is written.
+    fn from_discovered(d: &DiscoveredTemplate) -> Self {
+        let mut form = Self::new(None);
+        form.name.set_text(d.name.clone());
+        form.destination.set_text(d.destination.clone());
+        form.engine = d.inferred_engine.clone();
+        // For custom engines, carry the detected extension so the derived source
+        // path matches the file already on disk.
+        if d.inferred_engine == TemplateEngine::Custom {
+            form.extension.set_text(d.extension.clone());
+        }
+        form.adopt_source = Some(d.source_relative.clone());
+        form.adopt_profile = Some(d.source_profile.clone());
         form
     }
 
@@ -155,6 +180,8 @@ impl Form {
 #[derive(Default)]
 pub struct ManageTemplatesScreen {
     templates: Vec<ResolvedTemplate>,
+    /// Source files under `templates/` with no manifest entry yet.
+    discovered: Vec<DiscoveredTemplate>,
     list: ListState,
     profile: String,
     form: Option<Form>,
@@ -169,6 +196,14 @@ pub struct ManageTemplatesScreen {
     engine_area: Rect,
     buttons: Vec<(Rect, Action)>,
     modal_buttons: Vec<(Rect, Action)>,
+    last_click: Option<(usize, std::time::Instant)>,
+}
+
+/// A row in the unified list: either a tracked (manifest) template or a
+/// discovered (untracked on-disk) source file awaiting adoption.
+enum Row<'a> {
+    Tracked(&'a ResolvedTemplate),
+    Discovered(&'a DiscoveredTemplate),
 }
 
 impl ManageTemplatesScreen {
@@ -176,21 +211,47 @@ impl ManageTemplatesScreen {
         Self::default()
     }
 
+    /// Total number of list rows (tracked templates followed by discovered).
+    fn row_count(&self) -> usize {
+        self.templates.len() + self.discovered.len()
+    }
+
+    /// Resolve a list index into either a tracked or discovered row.
+    fn row_at(&self, index: usize) -> Option<Row<'_>> {
+        if index < self.templates.len() {
+            Some(Row::Tracked(&self.templates[index]))
+        } else {
+            self.discovered.get(index - self.templates.len()).map(Row::Discovered)
+        }
+    }
+
+    fn selected_row(&self) -> Option<Row<'_>> {
+        self.list.selected().and_then(|i| self.row_at(i))
+    }
+
+    fn selected_discovered(&self) -> Option<&DiscoveredTemplate> {
+        match self.selected_row() {
+            Some(Row::Discovered(d)) => Some(d),
+            _ => None,
+        }
+    }
+
     fn reload(&mut self, ctx: &ScreenContext) -> Result<()> {
         let manifest = ProfileManifest::load_or_backfill(ctx.repo_path)?;
         self.templates = manifest.resolve_templates(ctx.active_profile)?;
+        self.discovered = TemplateService::discover_untracked_templates(ctx.repo_path, ctx.active_profile)?;
         self.profile = ctx.active_profile.to_string();
-        let selection = self
-            .list
-            .selected()
-            .unwrap_or(0)
-            .min(self.templates.len().saturating_sub(1));
-        self.list.select((!self.templates.is_empty()).then_some(selection));
+        let total = self.row_count();
+        let selection = self.list.selected().unwrap_or(0).min(total.saturating_sub(1));
+        self.list.select((total > 0).then_some(selection));
         Ok(())
     }
 
     fn selected(&self) -> Option<&ResolvedTemplate> {
-        self.list.selected().and_then(|i| self.templates.get(i))
+        match self.selected_row() {
+            Some(Row::Tracked(t)) => Some(t),
+            _ => None,
+        }
     }
 
     /// Whether the selected template is owned by the active profile (editable
@@ -212,12 +273,13 @@ impl ManageTemplatesScreen {
     }
 
     fn move_selection(&mut self, down: bool) {
-        if self.templates.is_empty() {
+        let total = self.row_count();
+        if total == 0 {
             return;
         }
         let current = self.list.selected().unwrap_or(0);
         self.list.select(Some(if down {
-            (current + 1).min(self.templates.len() - 1)
+            (current + 1).min(total - 1)
         } else {
             current.saturating_sub(1)
         }));
@@ -239,6 +301,15 @@ impl ManageTemplatesScreen {
         }
         let template = TemplateService::create_template(params);
 
+        if let Some(current_rel) = &form.adopt_source {
+            let owner = form.adopt_profile.as_deref().unwrap_or(&self.profile);
+            let source_rel = template.source_relative_path(owner);
+            TemplateService::adopt_template(ctx.repo_path, current_rel, owner, template)?;
+            self.message = format!("Added to '{owner}'; source {source_rel}");
+            self.form = None;
+            return self.reload(ctx);
+        }
+
         // Guard against duplicate name/destination within the active profile's
         // own templates (ignoring the entry being edited).
         let own = TemplateService::profile_templates(ctx.repo_path, &self.profile)?;
@@ -254,8 +325,8 @@ impl ManageTemplatesScreen {
         let import_file = form.import_file.clone();
         let source_rel = template.source_relative_path(&self.profile);
 
-        // Materialize the source: either move an imported on-disk file in
-        // (preserving contents), or create an empty stub to author.
+        // Materialize the source: import a flat file, adopt an existing
+        // discovered file (relocating if needed), or create a stub to author.
         let message = if let Some(from) = import_file {
             TemplateService::import_source_file(ctx.repo_path, &self.profile, &template, &from)?;
             format!("Template saved; moved {} → {source_rel}", from.display())
@@ -350,6 +421,12 @@ impl ManageTemplatesScreen {
     }
 
     fn open_edit_form(&mut self, ctx: &ScreenContext) -> Result<()> {
+        // A discovered (untracked) row opens the adoption form instead.
+        if let Some(discovered) = self.selected_discovered() {
+            self.form = Some(Form::from_discovered(discovered));
+            self.message = "Confirm the engine and details, then Save to add this file to the manifest".to_string();
+            return Ok(());
+        }
         match self.owned_index(ctx)? {
             Some(index) => {
                 let template = self.selected().map(|r| r.template.clone());
@@ -420,11 +497,18 @@ impl ManageTemplatesScreen {
             Action::Create if self.worker.is_none() => self.form = Some(Form::new(None)),
             Action::Edit if self.worker.is_none() => self.open_edit_form(ctx)?,
             Action::Delete if self.worker.is_none() => {
-                if self.selected_is_owned() {
+                if self.selected_discovered().is_some() {
+                    self.message = "Untracked file: press Enter to add it to the manifest first".to_string();
+                } else if self.selected_is_owned() {
                     self.deleting = true;
                 } else if self.selected().is_some() {
                     self.message = "Inherited templates must be removed from their parent profile".to_string();
                 }
+            }
+            // Enter on a discovered row adopts it; otherwise it renders the
+            // selected tracked template.
+            Action::Confirm | Action::Install if self.worker.is_none() && self.selected_discovered().is_some() => {
+                self.open_edit_form(ctx)?;
             }
             Action::Install | Action::Confirm if self.worker.is_none() => self.start_render(ctx, false),
             Action::SelectAll if self.worker.is_none() => self.start_render(ctx, true),
@@ -482,6 +566,7 @@ impl Screen for ManageTemplatesScreen {
         self.form = None;
         self.deleting = false;
         self.file_browser.close();
+        self.last_click = None;
         self.reload(ctx)
     }
 
@@ -506,7 +591,7 @@ impl Screen for ManageTemplatesScreen {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(t.border));
         self.list_area = block.inner(panels[0]);
-        let items: Vec<_> = self
+        let mut items: Vec<ListItem> = self
             .templates
             .iter()
             .map(|resolved| {
@@ -524,6 +609,17 @@ impl Screen for ManageTemplatesScreen {
                 ))
             })
             .collect();
+        // Discovered (untracked) rows render below, visually distinct.
+        for d in &self.discovered {
+            let origin = if d.source_profile == self.profile {
+                String::new()
+            } else {
+                format!(" ({})", d.source_profile)
+            };
+            items.push(
+                ListItem::new(format!("+ {}{}  — untracked", d.name, origin)).style(Style::default().fg(t.warning)),
+            );
+        }
         frame.render_stateful_widget(
             List::new(items)
                 .block(block)
@@ -532,9 +628,9 @@ impl Screen for ManageTemplatesScreen {
             panels[0],
             &mut self.list,
         );
-        let detail = self.selected().map_or_else(
-            || "No templates yet. Add a committed source and choose its destination.".to_string(),
-            |resolved| {
+        let detail = match self.selected_row() {
+            None => "No templates yet. Add a committed source, import a file, or drop a file under templates/ to discover it.".to_string(),
+            Some(Row::Tracked(resolved)) => {
                 let template = &resolved.template;
                 let engine = if template.engine == TemplateEngine::OpInject {
                     "op-inject (1Password CLI)"
@@ -554,8 +650,23 @@ impl Screen for ManageTemplatesScreen {
                     template.description.as_deref().unwrap_or(""),
                     template.render_command.as_deref().unwrap_or("")
                 )
-            },
-        );
+            }
+            Some(Row::Discovered(d)) => {
+                let engine = if d.inferred_engine == TemplateEngine::OpInject {
+                    "op-inject (inferred from .tpl)"
+                } else {
+                    "custom (inferred from extension)"
+                };
+                format!(
+                    "{}  — UNTRACKED\n\nThis source file exists under templates/ but is not in the manifest yet.\n\nSource: {}\nWould become profile: {}\nDerived destination: {}\nInferred engine: {engine}\n\nPress {} to add it to the manifest (confirm the engine and details first).",
+                    d.name,
+                    d.source_relative,
+                    d.source_profile,
+                    d.destination,
+                    ctx.config.keymap.get_key_display_for_action(Action::Confirm),
+                )
+            }
+        };
         frame.render_widget(
             Paragraph::new(detail).wrap(Wrap { trim: false }).block(
                 Block::default()
@@ -573,7 +684,14 @@ impl Screen for ManageTemplatesScreen {
                 (Action::Import, "From file"),
                 (Action::Edit, "Edit"),
                 (Action::Delete, "Remove"),
-                (Action::Install, "Render"),
+                (
+                    Action::Install,
+                    if self.selected_discovered().is_some() {
+                        "Register"
+                    } else {
+                        "Render"
+                    },
+                ),
                 (Action::SelectAll, "Render all"),
                 (Action::Refresh, "Check"),
             ],
@@ -587,8 +705,9 @@ impl Screen for ManageTemplatesScreen {
             frame,
             footer,
             &format!(
-                "{}: Navigate | {}: Back{}",
+                "{}: Navigate | {}: Register / render | {}: Back{}",
                 ctx.config.keymap.navigation_display(),
+                ctx.config.keymap.get_key_display_for_action(Action::Confirm),
                 ctx.config.keymap.get_key_display_for_action(Action::Cancel),
                 if self.worker.is_some() { " | Rendering…" } else { "" }
             ),
@@ -660,9 +779,13 @@ impl Screen for ManageTemplatesScreen {
 
             // Derived source preview, so there's zero ambiguity about placement.
             frame.render_widget(
-                Paragraph::new(format!("Source → {}", form.preview_source(&self.profile)))
-                    .style(Style::default().fg(t.text_muted))
-                    .wrap(Wrap { trim: true }),
+                Paragraph::new(format!(
+                    "Owner: {} | Source → {}",
+                    form.adopt_profile.as_deref().unwrap_or(&self.profile),
+                    form.preview_source(form.adopt_profile.as_deref().unwrap_or(&self.profile))
+                ))
+                .style(Style::default().fg(t.text_muted))
+                .wrap(Wrap { trim: true }),
                 sections[1],
             );
             frame.render_widget(
@@ -793,8 +916,18 @@ impl Screen for ManageTemplatesScreen {
                         }
                         if self.list_area.contains(point) {
                             let index = self.list.offset() + usize::from(mouse.row - self.list_area.y);
-                            if index < self.templates.len() {
+                            if index < self.row_count() {
+                                let now = std::time::Instant::now();
+                                let double_click = self.last_click.is_some_and(|(previous, time)| {
+                                    previous == index
+                                        && now.duration_since(time) < std::time::Duration::from_millis(400)
+                                });
                                 self.list.select(Some(index));
+                                self.last_click = Some((index, now));
+                                if double_click && self.selected_discovered().is_some() {
+                                    self.last_click = None;
+                                    return self.action(Action::Confirm, ctx);
+                                }
                             }
                         }
                     }
@@ -1035,5 +1168,161 @@ mod tests {
         let child = manifest.profiles.iter().find(|p| p.name == "child").unwrap();
         assert_eq!(child.templates.len(), 1);
         assert_eq!(child.templates[0].destination, ".config/newtool/config");
+    }
+
+    #[test]
+    fn untracked_file_is_discovered_and_can_be_adopted_into_the_manifest() {
+        let (dir, config) = setup();
+        // Hand-place a source file under the active profile's subtree with no
+        // manifest entry (Scenario 1: drop a .tpl in the right folder).
+        let src = dir.path().join("templates/child/.config/git/work.tpl");
+        std::fs::create_dir_all(src.parent().unwrap()).unwrap();
+        std::fs::write(&src, "email = {{ op://v/i/email }}\n").unwrap();
+
+        let config_path = dir.path().join("config.toml");
+        let ctx = ScreenContext::new(&config, &config_path);
+        let mut screen = ManageTemplatesScreen::new();
+        screen.on_enter(&ctx).unwrap();
+
+        // The discovered row shows up (no tracked templates, one discovered).
+        assert_eq!(screen.templates.len(), 0);
+        assert_eq!(screen.discovered.len(), 1);
+        assert_eq!(screen.row_count(), 1);
+
+        // Select it and press Enter → adoption form opens, pre-filled.
+        screen.list.select(Some(0));
+        assert!(screen.selected_discovered().is_some());
+        screen.action(Action::Confirm, &ctx).unwrap();
+        let form = screen.form.as_ref().expect("adoption form open");
+        assert_eq!(form.name.text(), "work");
+        assert_eq!(form.destination.text(), ".config/git/work");
+        assert_eq!(form.engine, TemplateEngine::OpInject);
+
+        // Save adopts it: manifest entry written, existing file kept (not re-stubbed).
+        screen.action(Action::Save, &ctx).unwrap();
+        assert!(screen.form.is_none());
+        assert_eq!(std::fs::read_to_string(&src).unwrap(), "email = {{ op://v/i/email }}\n");
+
+        let manifest = ProfileManifest::load(dir.path()).unwrap();
+        let child = manifest.profiles.iter().find(|p| p.name == "child").unwrap();
+        assert_eq!(child.templates.len(), 1);
+        assert_eq!(child.templates[0].destination, ".config/git/work");
+
+        // After adoption it is tracked, no longer discovered.
+        screen.on_enter(&ctx).unwrap();
+        assert_eq!(screen.templates.len(), 1);
+        assert_eq!(screen.discovered.len(), 0);
+    }
+
+    #[test]
+    fn root_level_untracked_file_is_attributed_to_active_profile() {
+        let (dir, config) = setup();
+        // File directly under templates/ with no profile segment.
+        let src = dir.path().join("templates/.config/app.tpl");
+        std::fs::create_dir_all(src.parent().unwrap()).unwrap();
+        std::fs::write(&src, "x\n").unwrap();
+
+        let config_path = dir.path().join("config.toml");
+        let ctx = ScreenContext::new(&config, &config_path);
+        let mut screen = ManageTemplatesScreen::new();
+        screen.on_enter(&ctx).unwrap();
+
+        assert_eq!(screen.discovered.len(), 1);
+        assert_eq!(screen.discovered[0].source_profile, "child"); // active profile
+        assert_eq!(screen.discovered[0].destination, ".config/app");
+
+        // Adopting it relocates the root-level file into the profile subtree.
+        screen.list.select(Some(0));
+        screen.action(Action::Confirm, &ctx).unwrap();
+        screen.action(Action::Save, &ctx).unwrap();
+        assert!(!src.exists(), "root-level source should be relocated");
+        let moved = dir.path().join("templates/child/.config/app.tpl");
+        assert_eq!(std::fs::read_to_string(&moved).unwrap(), "x\n");
+    }
+
+    #[test]
+    fn discovery_adopts_common_and_other_profile_without_reassigning_to_active() {
+        let (dir, config) = setup();
+        for owner in ["common", "parent"] {
+            let source = dir.path().join(format!("templates/{owner}/.config/{owner}.tpl"));
+            std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+            std::fs::write(source, "fixture\n").unwrap();
+        }
+        let config_path = dir.path().join("config.toml");
+        let ctx = ScreenContext::new(&config, &config_path);
+        let mut screen = ManageTemplatesScreen::new();
+        screen.on_enter(&ctx).unwrap();
+        for owner in ["common", "parent"] {
+            let index = screen.templates.len()
+                + screen
+                    .discovered
+                    .iter()
+                    .position(|d| d.source_profile == owner)
+                    .unwrap();
+            screen.list.select(Some(index));
+            screen.action(Action::Confirm, &ctx).unwrap();
+            screen.action(Action::Save, &ctx).unwrap();
+            assert!(screen.form.is_none());
+            assert_eq!(
+                std::fs::read_to_string(dir.path().join(format!("templates/{owner}/.config/{owner}.tpl"))).unwrap(),
+                "fixture\n"
+            );
+        }
+        let manifest = ProfileManifest::load(dir.path()).unwrap();
+        assert_eq!(manifest.common.templates.len(), 1);
+        assert_eq!(
+            manifest
+                .profiles
+                .iter()
+                .find(|p| p.name == "parent")
+                .unwrap()
+                .templates
+                .len(),
+            1
+        );
+        assert_eq!(
+            manifest
+                .profiles
+                .iter()
+                .find(|p| p.name == "child")
+                .unwrap()
+                .templates
+                .len(),
+            0
+        );
+        assert_eq!(screen.discovered.len(), 0);
+    }
+
+    #[test]
+    fn single_click_selects_and_double_click_opens_discovered_registration() {
+        let (dir, config) = setup();
+        let source = dir.path().join("templates/root.tpl");
+        std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+        std::fs::write(source, "fixture").unwrap();
+        let config_path = dir.path().join("config.toml");
+        let ctx = ScreenContext::new(&config, &config_path);
+        let mut screen = ManageTemplatesScreen::new();
+        screen.on_enter(&ctx).unwrap();
+        draw(&mut screen, &config, 100, 32);
+        let click = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: screen.list_area.x + 1,
+            row: screen.list_area.y,
+            modifiers: KeyModifiers::NONE,
+        });
+        screen.handle_event(click.clone(), &ctx).unwrap();
+        assert!(screen.form.is_none());
+        screen.handle_event(click, &ctx).unwrap();
+        assert!(screen.form.is_some());
+        screen.action(Action::Cancel, &ctx).unwrap();
+        assert_eq!(
+            ProfileManifest::load(dir.path())
+                .unwrap()
+                .profiles
+                .iter()
+                .map(|p| p.templates.len())
+                .sum::<usize>(),
+            0
+        );
     }
 }

@@ -46,4 +46,4 @@ pub use package_service::{PackageCheckStatus, PackageCreationParams, PackageServ
 pub use profile_service::ProfileService;
 pub use storage_setup_service::{StepHandle, StepResult, StorageSetupService};
 pub use sync_service::{AddFileResult, RemoveFileResult, SyncService};
-pub use template_service::{TemplateCreationParams, TemplateService, TemplateStatus};
+pub use template_service::{DiscoveredTemplate, TemplateCreationParams, TemplateService, TemplateStatus};
