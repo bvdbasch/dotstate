@@ -40,7 +40,15 @@ impl BackupManager {
     /// Backup a file or directory to the backup session directory
     /// Returns the path where the backup was created
     pub fn backup_path(&self, session_dir: &Path, source: &Path, relative_name: &str) -> Result<PathBuf> {
-        let backup_dest = session_dir.join(relative_name);
+        let relative = Path::new(relative_name);
+        anyhow::ensure!(
+            !relative.is_absolute()
+                && relative
+                    .components()
+                    .all(|component| matches!(component, std::path::Component::Normal(_))),
+            "Backup path must be a relative path without '..'"
+        );
+        let backup_dest = session_dir.join(relative);
 
         // Create parent directories if needed
         if let Some(parent) = backup_dest.parent() {
@@ -66,6 +74,11 @@ impl BackupManager {
     #[must_use]
     pub fn backup_root(&self) -> &Path {
         &self.backup_root
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_backup_root(backup_root: PathBuf) -> Self {
+        Self { backup_root }
     }
 }
 
@@ -113,5 +126,19 @@ mod tests {
         let dir_name = session_path.file_name().unwrap().to_str().unwrap();
         assert!(dir_name.len() == 19); // YYYY-MM-DDTHH-MM-SS
         assert!(dir_name.contains('T'));
+    }
+
+    #[test]
+    fn test_backup_path_rejects_unsafe_relative_name() {
+        let temp_dir = TempDir::new().unwrap();
+        let backup_root = temp_dir.path().join("backups");
+        fs::create_dir_all(&backup_root).unwrap();
+        let source = temp_dir.path().join("source");
+        fs::write(&source, "contents").unwrap();
+        let manager = BackupManager { backup_root };
+        let session = manager.create_backup_session().unwrap();
+
+        assert!(manager.backup_path(&session, &source, "../escape").is_err());
+        assert!(manager.backup_path(&session, &source, "/absolute").is_err());
     }
 }

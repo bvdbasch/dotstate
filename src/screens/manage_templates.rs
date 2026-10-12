@@ -359,6 +359,7 @@ impl ManageTemplatesScreen {
             return;
         }
         let repo = ctx.repo_path.to_path_buf();
+        let backup_enabled = ctx.config.backup_enabled;
         let (tx, rx) = mpsc::channel();
         self.worker = Some(rx);
         self.message = "Rendering templates…".to_string();
@@ -367,7 +368,7 @@ impl ManageTemplatesScreen {
             let mut failures = Vec::new();
             for resolved in templates {
                 let name = resolved.template.name.clone();
-                let message = match TemplateService::render_template(&repo, &resolved) {
+                let message = match TemplateService::render_template(&repo, &resolved, backup_enabled) {
                     Ok(outcome)
                         if outcome.success
                             && TemplateService::check_template(&resolved.template).status

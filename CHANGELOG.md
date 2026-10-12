@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Template rendering**: Back up and remove an existing destination before rendering, preventing overwrite prompts from hanging the TUI. Refuse directory destinations and abort without modification when the backup fails.
 - **Template discovery**: Scan all of `templates/` for unregistered source files. Keyboard confirmation or double-click opens a pre-filled registration form. Preserve recognised profile/common ownership, assign ambiguous paths to the active profile, and relocate sources only when their canonical path differs. Registration checks collisions and rolls back relocation if saving the manifest fails.
 
 - **Templates**: New per-profile "templates" feature (manifest schema v3) that renders a committed source file to a home-relative destination via a built-in engine. The source location is **derived** from the destination, owning profile, and engine — `templates/<profile>/<destination>.<ext>` — mirroring how synced files live under `<profile>/<path>`, with a `templates/common/` pool for shared templates. Ships with the `op-inject` engine (1Password `op inject`, `.tpl` sources) and a `custom` engine (user-supplied command via `sh -c`, with a user-chosen extension). Templates resolve through the profile inheritance chain and merge `common` (lowest priority), overriding by destination.

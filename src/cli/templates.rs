@@ -473,7 +473,7 @@ fn cmd_render(profile: Option<String>, _all: bool, name: Option<String>) -> Resu
             template.destination
         ));
 
-        match TemplateService::render_template(&ctx.config.repo_path, resolved) {
+        match TemplateService::render_template(&ctx.config.repo_path, resolved, ctx.config.backup_enabled) {
             Ok(outcome) => {
                 for line in &outcome.output {
                     println!("    {line}");

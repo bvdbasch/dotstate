@@ -15,6 +15,7 @@
 use crate::utils::path::expand_path;
 use crate::utils::profile_manifest::{ResolvedTemplate, Template, TemplateEngine};
 use crate::utils::template_engine::TemplateEngineImpl;
+use crate::utils::BackupManager;
 use crate::utils::ProfileManifest;
 use anyhow::{Context, Result};
 use std::io::{BufRead, BufReader};
@@ -578,14 +579,19 @@ impl TemplateService {
         }
     }
 
-    /// Render a single resolved template, executing its engine command and
-    /// streaming combined stdout/stderr into the returned outcome.
+    /// Render a single resolved template, backing up and removing any existing
+    /// destination before executing its engine command. This prevents engines
+    /// such as `op inject` from blocking on their overwrite prompt.
     ///
     /// # Errors
     /// - If the render command cannot be built (e.g. Custom without a command).
     /// - If the source template file is missing.
     /// - If the child process cannot be spawned.
-    pub fn render_template(repo_path: &Path, resolved: &ResolvedTemplate) -> Result<RenderOutcome> {
+    pub fn render_template(
+        repo_path: &Path,
+        resolved: &ResolvedTemplate,
+        backup_enabled: bool,
+    ) -> Result<RenderOutcome> {
         let template = &resolved.template;
         let source_abs = Self::source_abs_path(repo_path, &resolved.source_profile, template);
 
@@ -604,6 +610,14 @@ impl TemplateService {
                 error: Some(format!("Source template file is missing: {}", source_abs.display())),
             });
         }
+
+        let destination = expand_path(&template.destination);
+        let backup_manager = backup_enabled.then(BackupManager::new).transpose()?;
+        let backup = Self::backup_and_remove_destination(&destination, backup_manager.as_ref())?;
+        let mut output: Vec<String> = backup
+            .map(|path| format!("Backed up existing destination to {}", path.display()))
+            .into_iter()
+            .collect();
 
         let mut cmd = TemplateEngineImpl::build_render_command(template, &source_abs)?;
 
@@ -641,7 +655,6 @@ impl TemplateService {
             }
         });
 
-        let mut output: Vec<String> = Vec::new();
         for line in rx {
             output.push(line);
         }
@@ -662,6 +675,62 @@ impl TemplateService {
         };
 
         Ok(RenderOutcome { success, output, error })
+    }
+
+    /// Back up and remove an existing file so non-interactive render commands
+    /// can write their output. Directories are deliberately refused because a
+    /// template destination represents a single file.
+    fn backup_and_remove_destination(
+        destination: &Path,
+        backup_manager: Option<&BackupManager>,
+    ) -> Result<Option<PathBuf>> {
+        let metadata = match std::fs::symlink_metadata(destination) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => {
+                return Err(error)
+                    .with_context(|| format!("Failed to inspect template destination {}", destination.display()))
+            }
+        };
+        anyhow::ensure!(
+            !metadata.file_type().is_dir(),
+            "Template destination {} is a directory; refusing to replace it",
+            destination.display()
+        );
+
+        let backup = if let Some(manager) = backup_manager {
+            let session = manager.create_backup_session()?;
+            let relative_name = Self::backup_relative_name(destination)?;
+            Some(manager.backup_path(&session, destination, &relative_name)?)
+        } else {
+            None
+        };
+        std::fs::remove_file(destination).with_context(|| {
+            format!(
+                "Failed to remove existing template destination {}",
+                destination.display()
+            )
+        })?;
+        Ok(backup)
+    }
+
+    /// Return a safe path for a destination in a centralized backup session.
+    /// Home-relative destinations retain their layout; external absolute paths
+    /// live under `external/` and can never cause `Path::join` to escape it.
+    fn backup_relative_name(destination: &Path) -> Result<String> {
+        let destination = destination.canonicalize()?;
+        let home = crate::utils::get_home_dir().canonicalize()?;
+        let relative = destination.strip_prefix(&home).map(PathBuf::from).unwrap_or_else(|_| {
+            let without_root = destination.strip_prefix("/").unwrap_or(&destination);
+            Path::new("external").join(without_root)
+        });
+        anyhow::ensure!(
+            relative
+                .components()
+                .all(|component| matches!(component, std::path::Component::Normal(_))),
+            "Template destination cannot be represented safely in a backup"
+        );
+        Ok(relative.to_string_lossy().to_string())
     }
 }
 
@@ -924,5 +993,36 @@ mod tests {
         );
         assert!(!repo.join("templates/personal/.config/git/config.tpl").exists());
         assert_eq!(ProfileManifest::load(repo).unwrap().profiles[0].templates.len(), 0);
+    }
+
+    #[test]
+    fn existing_render_destination_is_backed_up_then_removed() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let destination = dir.path().join("home/.config/app/config");
+        std::fs::create_dir_all(destination.parent().unwrap()).unwrap();
+        std::fs::write(&destination, "old contents\n").unwrap();
+        let backup_root = dir.path().join("backups");
+        std::fs::create_dir_all(&backup_root).unwrap();
+        let manager = BackupManager::new_with_backup_root(backup_root.clone());
+
+        let backup = TemplateService::backup_and_remove_destination(&destination, Some(&manager))
+            .unwrap()
+            .unwrap();
+
+        assert!(!destination.exists());
+        assert!(backup.starts_with(&backup_root));
+        assert_eq!(std::fs::read_to_string(backup).unwrap(), "old contents\n");
+    }
+
+    #[test]
+    fn existing_directory_is_not_replaced_by_template_render() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let destination = dir.path().join("destination");
+        std::fs::create_dir_all(&destination).unwrap();
+
+        let error = TemplateService::backup_and_remove_destination(&destination, None).unwrap_err();
+
+        assert!(error.to_string().contains("is a directory"));
+        assert!(destination.is_dir());
     }
 }

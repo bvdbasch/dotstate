@@ -275,6 +275,12 @@ the active profile owns the entry, and Save relocates the source into its
 canonical `templates/<profile>/...` path without changing its contents. Already
 registered sources from other profiles are not shown as untracked.
 
+Rendering an existing destination first creates a backup in the standard
+DotState backup location (when backups are enabled), then replaces the file.
+This keeps non-interactive engines from waiting for overwrite confirmation.
+Rendering refuses to replace a directory, and a failed backup leaves the
+destination untouched.
+
 There are two ways to add a template:
 
 - **Author it in place.** Create the source yourself under
