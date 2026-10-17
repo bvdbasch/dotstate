@@ -35,7 +35,7 @@ pub enum PackagesCommand {
         /// Package display name
         #[arg(short, long)]
         name: Option<String>,
-        /// Package manager (brew, cargo, apt, npm, pip, custom, etc.)
+        /// Package manager (brew, cargo, apt, npm, pip, pipx, custom, etc.)
         #[arg(short, long)]
         manager: Option<String>,
         /// Binary name to check for existence
@@ -136,7 +136,7 @@ fn cmd_help(command: Option<String>) -> Result<()> {
             println!("Options:");
             println!("  -p, --profile <NAME>       Target profile (defaults to active profile)");
             println!("  -n, --name <NAME>          Package display name");
-            println!("  -m, --manager <MANAGER>    Package manager (brew, cargo, apt, npm, pip, custom, etc.)");
+            println!("  -m, --manager <MANAGER>    Package manager (brew, cargo, apt, npm, pip, pipx, custom, etc.)");
             println!("  -b, --binary <NAME>        Binary name to check for existence");
             println!("      --description <TEXT>   Optional description");
             println!("      --package-name <NAME>  Package name in the manager (defaults to binary name)");
@@ -364,8 +364,9 @@ fn cmd_add(
     }
 
     let manager = match manager {
-        Some(m) => parse_manager(&m)
-            .ok_or_else(|| anyhow::anyhow!("Invalid manager '{m}'. Valid: brew, apt, cargo, npm, pip, custom, etc."))?,
+        Some(m) => parse_manager(&m).ok_or_else(|| {
+            anyhow::anyhow!("Invalid manager '{m}'. Valid: brew, apt, cargo, npm, pip, pipx, custom, etc.")
+        })?,
         None => prompt_manager(is_active)?,
     };
 

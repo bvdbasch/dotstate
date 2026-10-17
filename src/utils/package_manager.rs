@@ -91,6 +91,7 @@ impl PackageManagerImpl {
             PackageManager::Npm => "npm",
             PackageManager::Pip => "pip",
             PackageManager::Pip3 => "pip3",
+            PackageManager::Pipx => "pipx",
             PackageManager::Gem => "gem",
             PackageManager::Custom => return true, // Always available
         };
@@ -150,6 +151,11 @@ impl PackageManagerImpl {
             }
             PackageManager::Pip3 => {
                 let mut cmd = Command::new("pip3");
+                cmd.arg("install").arg(package_name);
+                cmd
+            }
+            PackageManager::Pipx => {
+                let mut cmd = Command::new("pipx");
                 cmd.arg("install").arg(package_name);
                 cmd
             }
@@ -242,6 +248,10 @@ impl PackageManagerImpl {
                 cmd.arg("show").arg(package_name);
                 Some(cmd)
             }
+            PackageManager::Pipx => {
+                // pipx has no per-package query command, use binary check
+                None
+            }
             PackageManager::Gem => {
                 let mut cmd = Command::new("gem");
                 cmd.arg("list").arg("-i").arg(package_name);
@@ -320,6 +330,9 @@ impl PackageManagerImpl {
         if Self::is_manager_installed(&PackageManager::Pip3) {
             available.push(PackageManager::Pip3);
         }
+        if Self::is_manager_installed(&PackageManager::Pipx) {
+            available.push(PackageManager::Pipx);
+        }
         if Self::is_manager_installed(&PackageManager::Gem) {
             available.push(PackageManager::Gem);
         }
@@ -354,6 +367,7 @@ impl PackageManagerImpl {
             PackageManager::Npm => "Install Node.js: https://nodejs.org/".to_string(),
             PackageManager::Pip => "pip usually comes with Python".to_string(),
             PackageManager::Pip3 => "pip3 usually comes with Python 3".to_string(),
+            PackageManager::Pipx => "Install pipx: https://pipx.pypa.io/stable/installation/".to_string(),
             PackageManager::Gem => "gem comes with Ruby".to_string(),
             PackageManager::Custom => "N/A - custom packages don't require a manager".to_string(),
         }

@@ -317,6 +317,7 @@ fn all_package_managers() -> Vec<PackageManager> {
         PackageManager::Npm,
         PackageManager::Pip,
         PackageManager::Pip3,
+        PackageManager::Pipx,
         PackageManager::Gem,
         PackageManager::Custom,
     ]
@@ -355,6 +356,7 @@ pub fn prompt_manager(is_active_profile: bool) -> Result<PackageManager> {
                 PackageManager::Npm => "npm",
                 PackageManager::Pip => "pip",
                 PackageManager::Pip3 => "pip3",
+                PackageManager::Pipx => "pipx",
                 PackageManager::Gem => "gem",
                 PackageManager::Custom => "custom",
             };
@@ -392,6 +394,7 @@ pub fn parse_manager(s: &str) -> Option<PackageManager> {
         "npm" => Some(PackageManager::Npm),
         "pip" => Some(PackageManager::Pip),
         "pip3" => Some(PackageManager::Pip3),
+        "pipx" => Some(PackageManager::Pipx),
         "gem" => Some(PackageManager::Gem),
         "custom" => Some(PackageManager::Custom),
         _ => None,

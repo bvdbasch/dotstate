@@ -48,6 +48,7 @@ pub enum PackageManager {
     Npm,    // Node.js packages
     Pip,    // Python packages (pip)
     Pip3,   // Python packages (pip3)
+    Pipx,   // Python applications (pipx)
     Gem,    // Ruby gems
     Custom, // Custom install command
 }

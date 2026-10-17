@@ -37,6 +37,7 @@ pub enum DiscoverySource {
     Npm,
     Pip,
     Pip3,
+    Pipx,
     Gem,
 }
 
@@ -55,6 +56,7 @@ impl DiscoverySource {
             DiscoverySource::Npm => "NPM",
             DiscoverySource::Pip => "pip",
             DiscoverySource::Pip3 => "pip3",
+            DiscoverySource::Pipx => "pipx",
             DiscoverySource::Gem => "Gem",
         }
     }
@@ -74,6 +76,7 @@ impl DiscoverySource {
             DiscoverySource::Npm => PackageManager::Npm,
             DiscoverySource::Pip => PackageManager::Pip,
             DiscoverySource::Pip3 => PackageManager::Pip3,
+            DiscoverySource::Pipx => PackageManager::Pipx,
             DiscoverySource::Gem => PackageManager::Gem,
         }
     }
@@ -94,6 +97,7 @@ impl DiscoverySource {
             PackageManager::Npm => Some(DiscoverySource::Npm),
             PackageManager::Pip => Some(DiscoverySource::Pip),
             PackageManager::Pip3 => Some(DiscoverySource::Pip3),
+            PackageManager::Pipx => Some(DiscoverySource::Pipx),
             PackageManager::Gem => Some(DiscoverySource::Gem),
             PackageManager::Custom => None, // Custom doesn't support discovery
         }
@@ -114,6 +118,7 @@ impl DiscoverySource {
             | DiscoverySource::Npm
             | DiscoverySource::Pip
             | DiscoverySource::Pip3
+            | DiscoverySource::Pipx
             | DiscoverySource::Gem => true,
         }
     }
@@ -818,6 +823,58 @@ impl PackageDiscoverer for Pip3Discoverer {
     }
 }
 
+/// Pipx package discoverer (Python applications).
+pub struct PipxDiscoverer;
+
+impl PackageDiscoverer for PipxDiscoverer {
+    fn is_available(&self) -> bool {
+        Command::new("pipx")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
+    fn source(&self) -> DiscoverySource {
+        DiscoverySource::Pipx
+    }
+
+    fn discover_packages(&self) -> Result<Vec<DiscoveredPackage>> {
+        info!("Discovering pipx packages...");
+
+        let output = Command::new("pipx")
+            .args(["list", "--short"])
+            .output()
+            .context("Failed to run pipx list")?;
+
+        if !output.status.success() {
+            anyhow::bail!("pipx list failed");
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let mut packages = Vec::new();
+
+        // Each line is "<package> <version>"
+        for line in stdout.lines() {
+            if let Some(package_name) = line.split_whitespace().next() {
+                packages.push(DiscoveredPackage {
+                    package_name: package_name.to_string(),
+                    binary_name: Some(package_name.to_string()),
+                    description: None,
+                    manager: DiscoverySource::Pipx,
+                });
+            }
+        }
+
+        info!("Discovered {} pipx packages", packages.len());
+        Ok(packages)
+    }
+
+    fn detect_binary_name(&self, package_name: &str) -> Option<String> {
+        Some(package_name.to_string())
+    }
+}
+
 /// Gem package discoverer (Ruby).
 pub struct GemDiscoverer;
 
@@ -896,6 +953,7 @@ impl PackageDiscoveryService {
             Box::new(NpmDiscoverer),
             Box::new(PipDiscoverer),
             Box::new(Pip3Discoverer),
+            Box::new(PipxDiscoverer),
             Box::new(GemDiscoverer),
         ];
 
