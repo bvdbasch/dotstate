@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Themes**: Add Houston (dark) theme based on the Houston VSCode theme, selectable as `theme = "houston"`.
 - **Package Manager**: Add `pipx` support (install, discovery via `pipx list --short`, availability detection, CLI `--manager pipx`). Existence checks use the binary name, as pipx has no per-package query command.
 - **Template rendering**: Back up and remove an existing destination before rendering, preventing overwrite prompts from hanging the TUI. Refuse directory destinations and abort without modification when the backup fails.
 - **Template discovery**: Scan all of `templates/` for unregistered source files. Keyboard confirmation or double-click opens a pre-filled registration form. Preserve recognised profile/common ownership, assign ambiguous paths to the active profile, and relocate sources only when their canonical path differs. Registration checks collisions and rolls back relocation if saving the manifest fails.

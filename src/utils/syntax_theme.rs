@@ -38,7 +38,7 @@ pub fn get_syntax_theme(theme_set: &ThemeSet, theme_type: ThemeType) -> &Theme {
         ThemeType::SolarizedDark => vec!["Solarized (dark)", "base16-ocean.dark"],
         ThemeType::GruvboxDark => vec!["base16-eighties.dark", "base16-ocean.dark"],
         ThemeType::CatppuccinMocha => vec!["base16-mocha.dark", "base16-ocean.dark"],
-        ThemeType::TokyoNightDark => vec!["base16-ocean.dark", "base16-eighties.dark"],
+        ThemeType::TokyoNightDark | ThemeType::Houston => vec!["base16-ocean.dark", "base16-eighties.dark"],
         ThemeType::Dark | ThemeType::NoColor | ThemeType::Midnight => vec![
             "base16-ocean.dark",
             "base16-eighties.dark",

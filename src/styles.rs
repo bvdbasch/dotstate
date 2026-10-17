@@ -75,6 +75,8 @@ pub enum ThemeType {
     TokyoNightDark,
     /// Tokyo Night (light) theme
     TokyoNightLight,
+    /// Houston (dark) theme
+    Houston,
 }
 
 impl ThemeType {
@@ -94,6 +96,7 @@ impl ThemeType {
             ThemeType::CatppuccinLatte => "Catppuccin Latte",
             ThemeType::TokyoNightDark => "Tokyo Night",
             ThemeType::TokyoNightLight => "Tokyo Night Light",
+            ThemeType::Houston => "Houston",
         }
     }
 
@@ -113,6 +116,7 @@ impl ThemeType {
             ThemeType::CatppuccinLatte => "catppuccin-latte",
             ThemeType::TokyoNightDark => "tokyonight-dark",
             ThemeType::TokyoNightLight => "tokyonight-light",
+            ThemeType::Houston => "houston",
         }
     }
 
@@ -131,6 +135,7 @@ impl ThemeType {
             ThemeType::CatppuccinLatte,
             ThemeType::TokyoNightDark,
             ThemeType::TokyoNightLight,
+            ThemeType::Houston,
             ThemeType::NoColor,
         ]
     }
@@ -155,6 +160,7 @@ impl FromStr for ThemeType {
             "tokyonight-light" | "tokyonight_light" | "tokyo-night-light" | "tokyo_night_light" => {
                 ThemeType::TokyoNightLight
             }
+            "houston" => ThemeType::Houston,
             "nocolor" | "no-color" | "no_color" => ThemeType::NoColor,
             _ => ThemeType::Dark,
         })
@@ -233,6 +239,7 @@ impl Theme {
             ThemeType::CatppuccinLatte => Self::catppuccin_latte(),
             ThemeType::TokyoNightDark => Self::tokyonight_dark(),
             ThemeType::TokyoNightLight => Self::tokyonight_light(),
+            ThemeType::Houston => Self::houston(),
         }
     }
 
@@ -555,6 +562,43 @@ impl Theme {
             highlight_bg: Color::Rgb(41, 46, 66), // bg_highlight #292e42
             background: Color::Rgb(36, 40, 59), // bg #24283b
             dim_bg: Color::Rgb(31, 35, 53),    // bg_dark #1f2335
+
+            border_type: BorderType::Rounded,
+            border_focused_type: BorderType::Thick,
+            dialog_border_type: BorderType::Double,
+        }
+    }
+
+    /// Houston theme - dark, based on the Houston `VSCode` theme / houston-terminal palette
+    #[must_use]
+    pub fn houston() -> Self {
+        Self {
+            theme_type: ThemeType::Houston,
+
+            // Houston Palette (houston-vscode / Zed theme)
+            // bg: #17191e  surface: #23262d  border: #343841  selected: #2d4860
+            // fg: #cccccc  muted: #858b98  dim: #545864  deep bg: #0f1419
+            // cyan: #00daef  blue: #54b9ff  lavender: #acafff
+            // green: #4bf3c8  yellow: #fbc23b  red: #f4587e  peach: #ffd493
+            primary: Color::Rgb(0, 218, 239),     // accent cyan #00daef
+            secondary: Color::Rgb(172, 175, 255), // lavender #acafff
+            tertiary: Color::Rgb(84, 185, 255),   // blue #54b9ff
+
+            success: Color::Rgb(75, 243, 200), // green #4bf3c8
+            warning: Color::Rgb(251, 194, 59), // yellow #fbc23b
+            error: Color::Rgb(244, 88, 126),   // red #f4587e
+
+            text: Color::Rgb(204, 204, 204),             // fg #cccccc
+            text_muted: Color::Rgb(133, 139, 152),       // muted #858b98
+            text_dimmed: Color::Rgb(84, 88, 100),        // #545864
+            text_emphasis: Color::Rgb(255, 212, 147),    // peach #ffd493
+            text_placeholder: Color::Rgb(133, 139, 152), // muted #858b98
+
+            border: Color::Rgb(96, 102, 114), // lifted from #343841 to reach 3:1 (titles inherit)
+            border_focused: Color::Rgb(0, 218, 239), // focus cyan #00daef
+            highlight_bg: Color::Rgb(45, 72, 96), // selected #2d4860
+            background: Color::Rgb(23, 25, 30), // bg #17191e
+            dim_bg: Color::Rgb(15, 20, 25),   // deep bg #0f1419
 
             border_type: BorderType::Rounded,
             border_focused_type: BorderType::Thick,
@@ -903,6 +947,7 @@ mod tests {
             "tokyonight-light".parse::<ThemeType>().unwrap(),
             ThemeType::TokyoNightLight
         );
+        assert_eq!("houston".parse::<ThemeType>().unwrap(), ThemeType::Houston);
     }
 
     #[test]
@@ -960,6 +1005,7 @@ mod tests {
             ThemeType::CatppuccinLatte,
             ThemeType::TokyoNightDark,
             ThemeType::TokyoNightLight,
+            ThemeType::Houston,
         ];
         for tt in presets {
             let t = Theme::new(tt);
