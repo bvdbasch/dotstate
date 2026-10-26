@@ -56,6 +56,10 @@ impl TemplateEngineImpl {
             TemplateEngine::OpInject => {
                 let mut cmd = Command::new("op");
                 cmd.arg("inject").arg("-i").arg(&source).arg("-o").arg(&destination);
+                // Explicit output permission mode; `op` defaults to 0600 otherwise.
+                if let Some(mode) = template.mode.as_deref().map(str::trim).filter(|m| !m.is_empty()) {
+                    cmd.arg("--file-mode").arg(mode);
+                }
                 Ok(cmd)
             }
             TemplateEngine::Custom => {
@@ -96,6 +100,7 @@ mod tests {
             engine: TemplateEngine::OpInject,
             extension: None,
             render_command: None,
+            mode: None,
             description: None,
         }
     }
@@ -121,6 +126,22 @@ mod tests {
         assert_eq!(args[1], "-i");
         assert!(args[2].ends_with("templates/personal/.config/git/config.tpl"));
         assert_eq!(args[3], "-o");
+        // No mode configured → no --file-mode flag, op's default applies.
+        assert!(!args.iter().any(|a| a == "--file-mode"));
+    }
+
+    #[test]
+    fn test_op_inject_passes_explicit_file_mode() {
+        let mut tpl = op_template();
+        tpl.mode = Some("0644".to_string());
+        let source = Path::new("/repo/templates/personal/.config/git/config.tpl");
+        let cmd = TemplateEngineImpl::build_render_command(&tpl, source).unwrap();
+        let args: Vec<_> = cmd.get_args().map(|a| a.to_string_lossy().to_string()).collect();
+        let pos = args
+            .iter()
+            .position(|a| a == "--file-mode")
+            .expect("--file-mode present");
+        assert_eq!(args[pos + 1], "0644");
     }
 
     #[test]

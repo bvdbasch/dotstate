@@ -70,6 +70,8 @@ pub struct RenderOutcome {
 /// The source path is not supplied: it is derived from the destination, engine
 /// (extension), and owning profile. `extension` is only honored for the
 /// `Custom` engine; built-in engines derive their extension from the engine.
+/// `mode` is only honored for the `OpInject` engine (output file permission
+/// mode, e.g. "0600"); custom commands manage their own output permissions.
 #[derive(Debug)]
 pub struct TemplateCreationParams<'a> {
     pub name: &'a str,
@@ -77,6 +79,7 @@ pub struct TemplateCreationParams<'a> {
     pub engine: TemplateEngine,
     pub extension: &'a str,
     pub render_command: &'a str,
+    pub mode: &'a str,
     pub description: &'a str,
 }
 
@@ -122,6 +125,7 @@ impl TemplateService {
             engine: template.engine.clone(),
             extension: template.extension.as_deref().unwrap_or(""),
             render_command: template.render_command.as_deref().unwrap_or(""),
+            mode: template.mode.as_deref().unwrap_or(""),
             description: template.description.as_deref().unwrap_or(""),
         });
         anyhow::ensure!(validation.is_valid, "{}", validation.error_message.unwrap_or_default());
@@ -455,11 +459,25 @@ impl TemplateService {
                 };
             }
         }
+        if params.engine == TemplateEngine::OpInject && !Self::is_valid_mode(params.mode) {
+            return TemplateValidation {
+                is_valid: false,
+                error_message: Some("File mode must be 3 or 4 octal digits (e.g. 0600), or empty".to_string()),
+            };
+        }
 
         TemplateValidation {
             is_valid: true,
             error_message: None,
         }
+    }
+
+    /// Whether `mode` is an acceptable output file mode: empty (use the
+    /// engine default) or 3-4 octal digits such as `600` or `0644`.
+    #[must_use]
+    pub fn is_valid_mode(mode: &str) -> bool {
+        let trimmed = mode.trim();
+        trimmed.is_empty() || ((3..=4).contains(&trimmed.len()) && trimmed.chars().all(|c| ('0'..='7').contains(&c)))
     }
 
     /// Build a `Template` from creation parameters.
@@ -480,6 +498,14 @@ impl TemplateService {
             None
         };
 
+        // Only op-inject honors an output mode (`--file-mode`).
+        let mode = if params.engine == TemplateEngine::OpInject {
+            let trimmed = params.mode.trim();
+            (!trimmed.is_empty()).then(|| trimmed.to_string())
+        } else {
+            None
+        };
+
         let description = {
             let trimmed = params.description.trim();
             (!trimmed.is_empty()).then(|| trimmed.to_string())
@@ -491,6 +517,7 @@ impl TemplateService {
             engine: params.engine,
             extension,
             render_command,
+            mode,
             description,
         }
     }
@@ -750,8 +777,41 @@ mod tests {
             engine,
             extension,
             render_command,
+            mode: "",
             description: "",
         }
+    }
+
+    #[test]
+    fn test_validate_mode_accepts_octal_and_rejects_garbage() {
+        let mut ok = params("config", TemplateEngine::OpInject, "", "");
+        ok.mode = "0644";
+        assert!(TemplateService::validate_template(&ok).is_valid);
+        for bad in ["abc", "08", "12345", "0o600"] {
+            let mut p = params("config", TemplateEngine::OpInject, "", "");
+            p.mode = bad;
+            assert!(
+                !TemplateService::validate_template(&p).is_valid,
+                "{bad} should be rejected"
+            );
+        }
+        // Mode is ignored (not validated) for the custom engine.
+        let mut custom = params("config", TemplateEngine::Custom, "tera", "j2");
+        custom.mode = "garbage";
+        assert!(TemplateService::validate_template(&custom).is_valid);
+    }
+
+    #[test]
+    fn test_create_template_keeps_mode_for_op_inject_only() {
+        let mut p = params("config", TemplateEngine::OpInject, "", "");
+        p.mode = " 0644 ";
+        assert_eq!(TemplateService::create_template(p).mode.as_deref(), Some("0644"));
+        let mut empty = params("config", TemplateEngine::OpInject, "", "");
+        empty.mode = "";
+        assert!(TemplateService::create_template(empty).mode.is_none());
+        let mut custom = params("config", TemplateEngine::Custom, "tera", "j2");
+        custom.mode = "0644";
+        assert!(TemplateService::create_template(custom).mode.is_none());
     }
 
     #[test]
@@ -838,6 +898,7 @@ mod tests {
             engine: TemplateEngine::OpInject,
             extension: None,
             render_command: None,
+            mode: None,
             description: None,
         };
         assert_eq!(TemplateService::check_template(&t).status, TemplateStatus::Missing);

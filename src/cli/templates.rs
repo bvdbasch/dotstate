@@ -48,6 +48,9 @@ pub enum TemplatesCommand {
         /// Render command (required for custom engine; supports {source}/{destination})
         #[arg(long)]
         render_command: Option<String>,
+        /// Output file mode for the op-inject engine, octal (e.g. 0600); omit for op's default
+        #[arg(short, long)]
+        mode: Option<String>,
         /// Optional description
         #[arg(long)]
         description: Option<String>,
@@ -98,6 +101,7 @@ pub fn execute(command: TemplatesCommand) -> Result<()> {
             engine,
             extension,
             render_command,
+            mode,
             description,
         } => cmd_add(
             profile,
@@ -106,6 +110,7 @@ pub fn execute(command: TemplatesCommand) -> Result<()> {
             engine,
             extension,
             render_command,
+            mode,
             description,
         ),
         TemplatesCommand::Remove { profile, yes, name } => cmd_remove(profile, yes, name),
@@ -146,7 +151,7 @@ fn cmd_help(command: Option<String>) -> Result<()> {
     match command.as_deref() {
         Some("list") => println!("dotstate templates list [--profile <name>] [--verbose]"),
         Some("add") => println!(
-            "dotstate templates add [--profile <name>] --name <name> --destination <rel-path> \\\n  --engine <op-inject|custom> [--extension <ext>] [--render-command <cmd>] [--description <text>]"
+            "dotstate templates add [--profile <name>] --name <name> --destination <rel-path> \\\n  --engine <op-inject|custom> [--extension <ext>] [--render-command <cmd>] [--mode <octal>] [--description <text>]"
         ),
         Some("remove") => {
             println!("dotstate templates remove [--profile <name>] [--yes] [<name>]");
@@ -169,6 +174,7 @@ fn cmd_help(command: Option<String>) -> Result<()> {
             println!("  check     Check whether template destinations exist");
             println!("\nEngines:");
             println!("  op-inject  Render via `op inject -i <source> -o <destination>`");
+            println!("             (--mode sets the output file mode via `--file-mode`, default 0600)");
             println!("  custom     Run a user-supplied command ({{source}}/{{destination}})");
         }
     }
@@ -227,6 +233,9 @@ fn cmd_list(profile: Option<String>, verbose: bool) -> Result<()> {
             if let Some(ref cmd) = template.render_command {
                 println!("    Render command: {cmd}");
             }
+            if let Some(ref mode) = template.mode {
+                println!("    File mode: {mode}");
+            }
             if let Some(ref desc) = template.description {
                 println!("    Description: {desc}");
             }
@@ -261,6 +270,7 @@ fn cmd_add(
     engine: Option<String>,
     extension: Option<String>,
     render_command: Option<String>,
+    mode: Option<String>,
     description: Option<String>,
 ) -> Result<()> {
     let ctx = CliContext::load()?;
@@ -321,6 +331,18 @@ fn cmd_add(
         String::new()
     };
 
+    // Only op-inject honors an output file mode (`op inject --file-mode`).
+    let mode = if is_custom {
+        String::new()
+    } else {
+        match mode {
+            Some(m) => m,
+            None => {
+                prompt_string_optional("Output file mode (octal, e.g. 0600; blank = op default)")?.unwrap_or_default()
+            }
+        }
+    };
+
     let desc = match description {
         Some(d) => d,
         None => prompt_string_optional("Description")?.unwrap_or_default(),
@@ -332,6 +354,7 @@ fn cmd_add(
         engine: engine.clone(),
         extension: &extension,
         render_command: &render_cmd,
+        mode: &mode,
         description: &desc,
     };
 

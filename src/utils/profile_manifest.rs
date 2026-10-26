@@ -140,6 +140,12 @@ pub struct Template {
     /// Supports `{source}` and `{destination}` placeholders.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub render_command: Option<String>,
+    /// Permission mode for the rendered output file, as an octal string
+    /// (e.g. "0600"). Only meaningful for the `OpInject` engine, where it is
+    /// passed as `op inject --file-mode <mode>`; when unset, `op` applies its
+    /// own default (0600).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
     /// Optional description (cached metadata, not required)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -897,6 +903,7 @@ mod tests {
             engine: TemplateEngine::OpInject,
             extension: None,
             render_command: None,
+            mode: None,
             description: None,
         }
     }
@@ -954,6 +961,7 @@ mod tests {
             engine: TemplateEngine::Custom,
             extension: Some("j2".to_string()),
             render_command: Some("render".to_string()),
+            mode: None,
             description: None,
         };
         assert_eq!(t.source_extension(), "j2");

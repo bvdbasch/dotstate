@@ -308,6 +308,7 @@ packages = []
 name = "config"
 destination = ".config/git/config"
 engine = "op-inject"
+mode = "0644"   # optional: output file mode passed as `op inject --file-mode`
 ```
 
 The **source file is not stored in the manifest — it is derived**, mirroring how
@@ -323,6 +324,11 @@ The **extension is chosen by the engine**, not the user: `op-inject` sources use
 `render_command` (run via `sh -c`, with `{source}` and `{destination}`
 placeholders) — the same way package fields stay hidden until you pick the
 `custom` manager. `op-inject` invokes the external 1Password CLI (`op inject`).
+For `op-inject` you can optionally set `mode`, an octal permission mode such as
+`0600` or `0644` for the rendered file; it is passed through as
+`op inject --file-mode`. Leave it unset to keep `op`'s default (`0600`). The TUI
+form shows this field only for the `op-inject` engine, and the CLI accepts it as
+`--mode`.
 
 Templates inherit from parent profiles and merge the `common` pool (lowest
 priority), with child definitions overriding by destination. The TUI filters to

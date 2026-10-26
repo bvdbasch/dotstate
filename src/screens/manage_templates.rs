@@ -25,7 +25,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 /// Logical form fields. The engine row is a toggle; `Extension`/`Command` only
-/// appear for the `custom` engine.
+/// appear for the `custom` engine, `Mode` only for `op-inject`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Field {
     Name,
@@ -33,6 +33,7 @@ enum Field {
     Engine,
     Extension,
     Command,
+    Mode,
     Description,
 }
 
@@ -41,6 +42,7 @@ struct Form {
     destination: TextInput,
     extension: TextInput,
     command: TextInput,
+    mode: TextInput,
     description: TextInput,
     engine: TemplateEngine,
     /// Index into `visible_fields()`.
@@ -63,6 +65,7 @@ impl Form {
             destination: TextInput::with_text(template.map(|t| t.destination.clone()).unwrap_or_default()),
             extension: TextInput::with_text(template.and_then(|t| t.extension.clone()).unwrap_or_default()),
             command: TextInput::with_text(template.and_then(|t| t.render_command.clone()).unwrap_or_default()),
+            mode: TextInput::with_text(template.and_then(|t| t.mode.clone()).unwrap_or_default()),
             description: TextInput::with_text(template.and_then(|t| t.description.clone()).unwrap_or_default()),
             engine: template.map_or(TemplateEngine::OpInject, |t| t.engine.clone()),
             focus: 0,
@@ -119,6 +122,8 @@ impl Form {
         if self.is_custom() {
             fields.push(Field::Extension);
             fields.push(Field::Command);
+        } else {
+            fields.push(Field::Mode);
         }
         fields.push(Field::Description);
         fields
@@ -135,6 +140,7 @@ impl Form {
             Field::Destination => Some(&mut self.destination),
             Field::Extension => Some(&mut self.extension),
             Field::Command => Some(&mut self.command),
+            Field::Mode => Some(&mut self.mode),
             Field::Description => Some(&mut self.description),
             Field::Engine => None,
         }
@@ -293,6 +299,7 @@ impl ManageTemplatesScreen {
             engine: form.engine.clone(),
             extension: form.extension.text(),
             render_command: form.command.text(),
+            mode: form.mode.text(),
             description: form.description.text(),
         };
         let validation = TemplateService::validate_template(&params);
@@ -557,6 +564,7 @@ impl ManageTemplatesScreen {
             Field::Engine => "Engine (left/right or click to toggle)",
             Field::Extension => "Source extension (e.g. j2)",
             Field::Command => "Render command ({source}/{destination})",
+            Field::Mode => "Output file mode (octal, e.g. 0600; blank = op default)",
             Field::Description => "Description",
         }
     }
@@ -643,8 +651,13 @@ impl Screen for ManageTemplatesScreen {
                 } else {
                     format!("inherited from {}", resolved.source_profile)
                 };
+                let mode = match (&template.engine, template.mode.as_deref()) {
+                    (TemplateEngine::OpInject, Some(m)) => format!("\nFile mode: {m}"),
+                    (TemplateEngine::OpInject, None) => "\nFile mode: op default (0600)".to_string(),
+                    _ => String::new(),
+                };
                 format!(
-                    "{}\n\nEngine: {engine}\nOrigin: {origin}\nSource: {}\nDestination: {}\n\n{}\n\n{}\n\nStatus checks file existence, not drift. Rendered files are not symlinked or synced.",
+                    "{}\n\nEngine: {engine}\nOrigin: {origin}\nSource: {}\nDestination: {}{mode}\n\n{}\n\n{}\n\nStatus checks file existence, not drift. Rendered files are not symlinked or synced.",
                     template.name,
                     resolved.source_relative_path(),
                     template.destination,
@@ -765,6 +778,7 @@ impl Screen for ManageTemplatesScreen {
                     Field::Destination => Some(&form.destination),
                     Field::Extension => Some(&form.extension),
                     Field::Command => Some(&form.command),
+                    Field::Mode => Some(&form.mode),
                     Field::Description => Some(&form.description),
                     Field::Engine => None,
                 } {
@@ -971,6 +985,7 @@ mod tests {
             engine: TemplateEngine::Custom,
             extension: Some("in".to_string()),
             render_command: Some("cp '{source}' '{destination}'".to_string()),
+            mode: None,
             description: None,
         }
     }
@@ -1060,16 +1075,49 @@ mod tests {
         screen.on_enter(&ctx).unwrap();
         screen.action(Action::Create, &ctx).unwrap();
         let form = screen.form.as_ref().unwrap();
-        // op-inject hides extension + command: Name, Destination, Engine, Description.
-        assert_eq!(form.visible_fields().len(), 4);
+        // op-inject hides extension + command but shows the output file mode:
+        // Name, Destination, Engine, Mode, Description.
+        assert_eq!(form.visible_fields().len(), 5);
+        assert!(form.visible_fields().contains(&Field::Mode));
         // Focus the engine row and toggle to custom.
         let engine_pos = form.visible_fields().iter().position(|f| *f == Field::Engine).unwrap();
         screen.form.as_mut().unwrap().focus = engine_pos;
         screen.action(Action::MoveRight, &ctx).unwrap();
         let form = screen.form.as_ref().unwrap();
         assert!(form.is_custom());
-        // Now 6 fields including Extension + Command.
+        // Now 6 fields including Extension + Command; Mode is op-inject only.
         assert_eq!(form.visible_fields().len(), 6);
+        assert!(!form.visible_fields().contains(&Field::Mode));
+    }
+
+    #[test]
+    fn op_inject_form_persists_explicit_file_mode() {
+        let (dir, config) = setup();
+        let config_path = dir.path().join("config.toml");
+        let ctx = ScreenContext::new(&config, &config_path);
+        let mut screen = ManageTemplatesScreen::new();
+        screen.on_enter(&ctx).unwrap();
+        screen.action(Action::Create, &ctx).unwrap();
+        let form = screen.form.as_mut().unwrap();
+        form.name.set_text("work");
+        form.destination.set_text(".config/git/work");
+        form.mode.set_text("0644");
+        screen.action(Action::Save, &ctx).unwrap();
+        assert!(screen.form.is_none(), "{}", screen.message);
+
+        let manifest = ProfileManifest::load(dir.path()).unwrap();
+        let child = manifest.profiles.iter().find(|p| p.name == "child").unwrap();
+        assert_eq!(child.templates[0].mode.as_deref(), Some("0644"));
+
+        // Editing pre-fills the mode; an invalid value is rejected with a message.
+        screen.list.select(Some(0));
+        screen.action(Action::Edit, &ctx).unwrap();
+        let form = screen.form.as_mut().unwrap();
+        assert_eq!(form.mode.text(), "0644");
+        form.mode.set_text("rw-r--r--");
+        screen.action(Action::Save, &ctx).unwrap();
+        assert!(screen.form.is_some());
+        assert!(screen.message.contains("octal"), "{}", screen.message);
     }
 
     #[test]
